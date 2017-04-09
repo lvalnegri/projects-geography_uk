@@ -2,7 +2,7 @@
 # 00- CREATE TABLES
 ###############################################################
 library(RMySQL)
-db_conn = dbConnect(MySQL(), group = 'homeserver-out', dbname = 'geographyUK')
+db_conn = dbConnect(MySQL(), group = 'homeserver', dbname = 'geographyUK')
 
 # POSTCODES ---------------------------------------------------------------------------------------------------------------------
 strSQL <- "
@@ -78,7 +78,7 @@ strSQL <- "
     	LEA CHAR(3) NOT NULL COLLATE 'utf8_unicode_ci',
     	CCG CHAR(9) NOT NULL COLLATE 'utf8_unicode_ci',
     	LAT CHAR(3) NOT NULL COLLATE 'utf8_unicode_ci',
-    	NHSR CHAR(3) NOT NULL COLLATE 'utf8_unicode_ci',
+        NCR CHAR(3) NOT NULL COLLATE 'utf8_unicode_ci',
     	PCT CHAR(9) NOT NULL COLLATE 'utf8_unicode_ci',
     	SHA CHAR(9) NOT NULL COLLATE 'utf8_unicode_ci',
     	SHAO CHAR(3) NOT NULL COLLATE 'utf8_unicode_ci',
