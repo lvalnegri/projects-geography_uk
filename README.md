@@ -15,24 +15,19 @@ We'll be using only the shorter 7-char *PCD* form:
 
 
 ### Locations
-The following is a comprehensive list of areas 
+The following is a comprehensive list of the areas stored in the database when running the script. 
 
-When an area is not assigned, pseudo codes are the following:
- - E99999999 England (ENG); 
- - W99999999 Wales (WLS) 
- - S99999999 Scotland (SCO)
- - N99999999 Northern Ireland (NIE) 
+When an area is not assigned, .
  
-
- - *OA*. UK. Output Area (in 
+ - *OA*. UK. ENG/WLS: Output Area, SCO: Data Zone, NIE: Small Area
  - *LSOA*. UK.
  - *MSOA*. GB.
- - *LAD*. : 
- - *CTY*. ENG: County (only parts)
- - *RGN*. : 
- - *CTRY*. UK
+ - *LAD*. UK. ENG: Local Authority District (LAD), Unitary Authority (UA), Metropolitan District (MD), London Borough (LB); WLS: Unitary Authority (UA); SCO: Council Area (CA), NIE: District Council Area (DCA) 
+ - *CTY*. ENG: County (only for UA/MD/LB, see LAD)
+ - *RGN*. ENG: Region (it was previously GOR) 
+ - *CTRY*. UK: Country
  - *MCT*. : 
- - *WARD*. : 
+ - *WARD*. UK: Electoral Division
  - *PCON*. : 
  - *TTWA*. : 
  - *WKZ*. : 
@@ -52,7 +47,7 @@ When an area is not assigned, pseudo codes are the following:
  - *LAT*. 
  - *NHSR*. 
  - *PCT*. 
- - *SHA*. 
+ - *SHA*. UK: Health Area. ENG: (Former) Strategic Health Authority (SHA, abolished in 2013); WLS: Local Health Board (LHB); SCO: Health Board (HB); NIE: Health And Social Care Board (HSCB)
  - *SHAO*. 
  - *SCN*. 
  - *CNR*. 
