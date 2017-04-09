@@ -15,6 +15,40 @@ We'll be using only the shorter 7-char *PCD* form:
 
 
 ### Locations
+The following is a comprehensive list of areas 
+
+ - OA UK Output Area (in 
+ - LSOA UK
+ - MSOA GB
+ - LAD
+ - CTY
+ - RGN
+ - CTRY UK
+ - MCT
+ - WARD
+ - PCON
+ - TTWA
+ - WKZ
+ - PFA
+ - PCS UK
+ - PCD UK
+ - PCA UK
+ - PAR
+ - LAU2
+ - LAU1
+ - NTS3
+ - NTS2
+ - NTS1
+ - LLSC
+ - LEA
+ - CCG UK
+ - LAT
+ - NHSR
+ - PCT
+ - SHA
+ - SHAO
+ - SCN
+ - CNR
 
 
 ### Lookups (starting from Output Areas - OAs)
