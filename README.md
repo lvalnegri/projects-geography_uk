@@ -44,13 +44,13 @@ When an area is not assigned, .
  - *LLSC*. GB. ENG: Local Learning and Skills Council (LLSC); WLS: Dept. Children, Education, Lifelong Learning and Skills (DCELLS); SCO: Enterprise Region (ER) 
  - *LEA*. UK: Old Local Education Authority. GB: Local Education Authority (LEA); NIE: Education and Library Board (ELB) 
  - *CCG*. UK. ENG: Clinical Commissioning Group (CCG); WLS: Local Health Board (LHB); SCO: Community Health Partnership (CHP); NIE: Local Commissioning Group (LCG) 
- - *LAT*. 
- - *NHSR*. 
+ - *LAT*. ENG: NHS Region (formerly Local Area Team)
+ - *NCR*. ENG: NHS Commissioning Region
  - *PCT*. UK. ENG: Primary Care Trust (PCT), Care Trust (Plus) (CT); WLS: Local Health Board (LHB), SCO: Community Health Partnership (CHP), NIE: Local Commissioning Group (LCG) 
  - *SHA*. UK: Health Area. ENG: (Former) Strategic Health Authority (SHA, abolished in 2013); WLS: Local Health Board (LHB); SCO: Health Board (HB); NIE: Health And Social Care Board (HSCB)
  - *SHAO*.UK (minus WLS): Old Health Area prior to the NHS reorganisation on 01/07/06. ENG: (Previous) Strategic Health Authority (SHA); SCO: Health Board (HB); NIE: Health and Social Services Board (HSSB) 
- - *SCN*. 
- - *CNR*. 
+ - *SCN*. EW: NHS Strategic Clinical Network
+ - *CNR*. EW: Cancer Registry
 
 
 ### Lookups (starting from Output Areas - OAs)
