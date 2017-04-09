@@ -20,7 +20,24 @@ We'll be using only the shorter 7-char *PCD* form:
 ### Lookups (starting from Output Areas - OAs)
 
 
-### Boundaries
+### Boundaries: Union and Simplify
+
+
+### Boundaries: Merge and Dissolve
+
+
+### Mapping: Combine Data and Boundaries
+
+#### Using dataframes with ggplot and ggmap 
+
+[ggplot]() 
+[ggmap](http://github.com/dkahle/ggmap/) 
+
+#### Using Shapefiles with leaflet, tmap and ggplot + ggspatial
+
+[leaflet](http://rstudio.github.io/leaflet/) 
+[tmap](http://github.com/mtennekes/tmap) 
+[ggspatial](http://github.com/paleolimbot/ggspatial) 
 
 
 
