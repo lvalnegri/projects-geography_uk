@@ -19,36 +19,36 @@ The following is a comprehensive list of the areas stored in the database when r
 
 When an area is not assigned, .
  
- - *OA*. UK. ENG/WLS: Output Area, SCO: Data Zone, NIE: Small Area
- - *LSOA*. UK.
- - *MSOA*. GB.
+ - *OA*. UK. GB: 2011 Census Output Area (OA); NIE: 2011 Census Small Area (SA)
+ - *LSOA*. UK. ENG, WLS: 2011 Census Lower Layer Super Output Area (LSOA); SCO: 2011 Census Data Zone (DZ); NIE: 2011 Census Small Output Area (SOA)
+ - *MSOA*. GB. ENG, WLS: 2011 Census Middle Layer Super Output Area (MSOA); SCO: 2011 Census Intermediate Zone (I Z)
  - *LAD*. UK. ENG: Local Authority District (LAD), Unitary Authority (UA), Metropolitan District (MD), London Borough (LB); WLS: Unitary Authority (UA); SCO: Council Area (CA), NIE: District Council Area (DCA) 
  - *CTY*. ENG: County (only for UA/MD/LB, see LAD)
- - *RGN*. ENG: Region (it was previously GOR) 
+ - *RGN*. ENG: Region (in the ONS file it is coded as *GOR*) 
  - *CTRY*. UK: Country
  - *MCT*. : 
  - *WARD*. UK: Electoral Division
- - *PCON*. : 
- - *TTWA*. : 
+ - *PCON*. UK: Westminster Parliamentary Constituency
+ - *TTWA*. UK: Travel to Work Area. There are also six *cross-border* areas (K01000009, ..., K01000014)
  - *WKZ*. : 
  - *PFA*. : 
  - *PCS*. UK
  - *PCD*. UK
  - *PCA*. UK
  - *PAR*. 
- - *LAU2*. 
- - *LAU1*. 
- - *NTS3*. 
- - *NTS2*. 
- - *NTS1*. 
- - *LLSC*. 
- - *LEA*. 
+ - *LAU2*. UK. 
+ - *LAU1*. UK. 
+ - *NTS3*. UK. 
+ - *NTS2*. UK. 
+ - *NTS1*. UK. 
+ - *LLSC*. GB. ENG: Local Learning and Skills Council (LLSC); WLS: Dept. Children, Education, Lifelong Learning and Skills (DCELLS); SCO: Enterprise Region (ER) 
+ - *LEA*. UK: Old Local Education Authority. GB: Local Education Authority (LEA); NIE: Education and Library Board (ELB) 
  - *CCG*. UK
  - *LAT*. 
  - *NHSR*. 
- - *PCT*. 
+ - *PCT*. UK. ENG: Primary Care Trust (PCT), Care Trust (Plus) (CT); WLS: Local Health Board (LHB), SCO: Community Health Partnership (CHP), NIE: Local Commissioning Group (LCG) 
  - *SHA*. UK: Health Area. ENG: (Former) Strategic Health Authority (SHA, abolished in 2013); WLS: Local Health Board (LHB); SCO: Health Board (HB); NIE: Health And Social Care Board (HSCB)
- - *SHAO*. 
+ - *SHAO*.UK (minus WLS): Old Health Area prior to the NHS reorganisation on 01/07/06. ENG: (Previous) Strategic Health Authority (SHA); SCO: Health Board (HB); NIE: Health and Social Services Board (HSSB) 
  - *SCN*. 
  - *CNR*. 
 
