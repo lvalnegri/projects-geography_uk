@@ -30,20 +30,20 @@ When an area is not assigned, .
  - *WARD*. UK: Electoral Division
  - *PCON*. UK: Westminster Parliamentary Constituency
  - *TTWA*. UK: Travel to Work Area. There are also six *cross-border* areas (K01000009, ..., K01000014)
- - *WKZ*. : 
- - *PFA*. : 
- - *PCS*. UK
- - *PCD*. UK
- - *PCA*. UK
- - *PAR*. 
- - *LAU2*. UK. 
- - *LAU1*. UK. 
- - *NTS3*. UK. 
- - *NTS2*. UK. 
- - *NTS1*. UK. 
+ - *WKZ*. UK: 2011 Census Workplace Zone
+ - *PFA*. EW: Police Force Area
+ - *PCS*. UK: Postcode Sector
+ - *PCD*. UK: Postcode District
+ - *PCA*. UK: Postcode Area
+ - *PAR*. EW. ENG: Civil Parish or Unparished; WLS: Community.
+ - *LAU2*. UK: Eurostat Local Administrative Units, lower level 2: Municipalities or equivalents (formerly NUTS5)
+ - *LAU1*. UK: Eurostat Local Administrative Units, upper level 1 (formerly NUTS4)
+ - *NTS3*. UK: Eurostat Territorial Units For Statistics Level 3: Small Regions
+ - *NTS2*. UK: Eurostat Territorial Units For Statistics Level 2: Basic Regions
+ - *NTS1*. UK: Eurostat Territorial Units For Statistics Level 1: Major Regions
  - *LLSC*. GB. ENG: Local Learning and Skills Council (LLSC); WLS: Dept. Children, Education, Lifelong Learning and Skills (DCELLS); SCO: Enterprise Region (ER) 
  - *LEA*. UK: Old Local Education Authority. GB: Local Education Authority (LEA); NIE: Education and Library Board (ELB) 
- - *CCG*. UK
+ - *CCG*. UK. ENG: Clinical Commissioning Group (CCG); WLS: Local Health Board (LHB); SCO: Community Health Partnership (CHP); NIE: Local Commissioning Group (LCG) 
  - *LAT*. 
  - *NHSR*. 
  - *PCT*. UK. ENG: Primary Care Trust (PCT), Care Trust (Plus) (CT); WLS: Local Health Board (LHB), SCO: Community Health Partnership (CHP), NIE: Local Commissioning Group (LCG) 
