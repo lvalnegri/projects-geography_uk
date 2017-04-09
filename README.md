@@ -28,15 +28,17 @@ We'll be using only the shorter 7-char *PCD* form:
 
 ### Mapping: Combine Data and Boundaries
 
-#### Using dataframes with ggplot and ggmap 
-
+#### ggplot and ggmap 
 [ggplot]() 
 [ggmap](http://github.com/dkahle/ggmap/) 
 
-#### Using Shapefiles with leaflet, tmap and ggplot + ggspatial
-
+#### leaflet
 [leaflet](http://rstudio.github.io/leaflet/) 
+
+#### tmap
 [tmap](http://github.com/mtennekes/tmap) 
+
+#### ggplot + ggspatial
 [ggspatial](http://github.com/paleolimbot/ggspatial) 
 
 
