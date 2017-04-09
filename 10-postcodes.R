@@ -1,6 +1,10 @@
-### 1- Load packages, Set variables ------------------------------------------------------------------------------------------
-library('data.table')
-library('RMySQL')
+###############################################################
+# 10- POSTCODES
+###############################################################
+
+### 1- Load packages, Set variables ---------------------------------------------------------------------------------------------
+pkg <- c('data.table', 'RMySQL')
+pkg <- lapply(pkg, require, character.only = TRUE)
 data.path <- 
     if(substr(Sys.info()['sysname'], 1, 1) == 'W'){
         'D:/cloud/OneDrive/data/UK/geography/postcodes/'
@@ -8,7 +12,7 @@ data.path <-
         
     }
 
-### 2- ONSPD ----------------------------------------------------------------------------------------------------------------
+### 2- ONSPD --------------------------------------------------------------------------------------------------------------------
 
 # load data
 onspd <- fread(paste0(data.path, 'ONSPD.csv'), 
@@ -38,7 +42,7 @@ onspd <- onspd[osgrdind < 9, .(
 )]
 
 
-### 3- NHSPD. There is no header in this file, so we have to use columns position. Read USer guide for more info --------------
+### 3- NHSPD. There is no header in this file, so we have to use columns position. Read USer guide for more info ----------------
 
 # load data (only the fields not already present in ONSPD: NHSR, LAT, CNR, SCN). Also CTRY to check totals
 nhspd <- fread(paste0(data.path, 'NHSPD.csv'),
@@ -63,26 +67,33 @@ nhspd <- nhspd[, postcode := paste0(substr(postcode, 1, 4), substr(postcode, 6, 
 nhspd[, `:=`(grid = NULL, CTRY = NULL) ]
 
 
-### 4- JOIN TABLES -----------------------------------------------------------------------------------------------------------
+### 4- JOIN TABLES --------------------------------------------------------------------------------------------------------------
 setkey(onspd, 'postcode')
 setkey(nhspd, 'postcode')
 postcodes <- onspd[nhspd]
 
 
-### 5- Add Postcode Areas, Districts, Sectors ---------------------------------------------------------------------------------
+### 5- Add Postcode Areas, Districts, Sectors -----------------------------------------------------------------------------------
 postcodes[, PCA := sub('[0-9]', '', substr(postcode, 1, gregexpr("[[:digit:]]", postcode)[[1]][1]-1) ) ]
 postcodes[, PCD := gsub(' ', '', substr(postcode, 1, 4) ) ]
 postcodes[, PCS := substr(postcode, 1, 5) ]
 
 
-### 6- SAVE RESULTS -----------------------------------------------------------------------------------------------------------
+### 6- SAVE RESULTS -------------------------------------------------------------------------------------------------------------
 db_conn <- dbConnect(MySQL(), group = 'homeserver', dbname = 'geographyUK')
 dbSendQuery(db_conn, "TRUNCATE TABLE postcodes")
 dbWriteTable(db_conn, 'postcodes', postcodes, row.names = FALSE, append = TRUE)
+
+
+### 7- CLEAN & EXIT -------------------------------------------------------------------------------------------------------------
 dbDisconnect(db_conn)
-
-
-### 7- CLEAN & EXIT ----------------------------------------------------------------------------------------------------------
 rm(list = ls())
 gc()
+
+### LOAD postcodes once stored
+# pkg <- c('data.table', 'RMySQL')
+# pkg <- lapply(pkg, require, character.only = TRUE)
+# db_conn <- dbConnect(MySQL(), group = 'homeserver-out', dbname = 'geographyUK')
+# postcodes <- data.table(dbReadTable(db_conn, 'postcodes'), key = 'postcode')
+# dbDisconnect(db_conn)
 
