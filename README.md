@@ -29,7 +29,7 @@ We'll be using only the shorter 7-char *PCD* form:
 ### Mapping: Combine Data and Boundaries
 
 #### ggplot and ggmap 
-[ggplot]() 
+[ggplot](http://stat405.had.co.nz/ggmap.pdf) 
 [ggmap](http://github.com/dkahle/ggmap/) 
 
 #### leaflet
