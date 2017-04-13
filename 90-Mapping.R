@@ -5,20 +5,18 @@
 ### 1- Load packages, Set variables ---------------------------------------------------------------------------------------------
 pkg <- c('data.table', 'ggplot', 'ggmap', 'ggspatial',  'leaflet', 'rgdal', 'RMySQL', 'sf', 'tmap')
 pkg <- lapply(pkg, require, character.only = TRUE)
-data.path <- 
+shp.path <- 
     if(substr(Sys.info()['sysname'], 1, 1) == 'W'){
-        'D:/cloud/OneDrive/data/UK/geography/postcodes/'
+        'D:/cloud/OneDrive/data/UK/geography/boundaries/ONS'
     } else {
         
     }
 
 ### 2- Load data ----------------------------------------------------------------------------------------------------------------
-db_conn <- dbConnect(MySQL(), group = 'homeserver', dbname = 'geographyUK')
-strSQL = "
-"
-dataset <- data.table(dbGetQuery(db_conn, strSQL), key = '')
-dataset <- data.table(dbReadTable(db_conn, 'postcodes'), key = '')
-
+shp.bnd <- readOGR(shp.path, 'MTC')
+shp.bnd <- spTransform(shp.bnd, CRS("+proj=longlat +datum=WGS84"))
+plot(shp.bnd)
+leaflet(shp.bnd) %>% addTiles() %>% addPolygons(fillColor = 'grey', weight = 2, opacity = 1, color = "white", dashArray = "3", fillOpacity = 0.7)
 
 ### - CLEAN & EXIT -------------------------------------------------------------------------------------------------------------
 dbDisconnect(db_conn)
