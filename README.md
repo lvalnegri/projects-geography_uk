@@ -55,6 +55,10 @@ When an area is not assigned, .
 
 ### Lookups (starting from Output Areas - OAs)
 
+- Postcode Sectors: 
+  - ENG/WLS: see [this best-fit lookup table](https://data.gov.uk/harvest/gemini-object/e254ade3-bcc2-45e1-9590-6642c70d8815). If the link doesn't work, try instead [this archived content](https://geoportal.statistics.gov.uk/Docs/Lookups/Output_areas_(2011)_to_enumeration_postcode_sectors_(2011)_E+W_lookup.zip) still works
+  - SCO: see the table OA_TO_HIGHER_AREAS in the 2011 Census Indexes database you can download from [here](https://www.nrscotland.gov.uk/statistics-and-data/geography/our-products/census-datasets/2011-census/2011-indexes) 
+  - NIE
 
 ### Boundaries: Union and Simplify
 
@@ -76,6 +80,7 @@ Unzip all the files, keep only the ones with the extensions: **shp** (geometry),
 
 
 ### Mapping: Combine Data and Boundaries
+
 
 #### ggplot and ggmap 
 [ggplot](http://stat405.had.co.nz/ggmap.pdf) 
