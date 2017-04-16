@@ -58,6 +58,19 @@ When an area is not assigned, .
 
 ### Boundaries: Union and Simplify
 
+Download the OAs boundaries for each country :
+  - England and Wales: browse to [COA Boundaries](http://geoportal.statistics.gov.uk/datasets?q=COA%20Boundaries&sort_by=name) 
+    and download the *Generalised Clipped boundaries* full dataset shapefile (~50MB).
+    The projection is **British National Grid, OSGB_1936**
+  - Scotland: open [2011 Census Geography](http://www.nrscotland.gov.uk/statistics-and-data/geography/our-products/census-datasets/2011-census/2011-boundaries) 
+    and download the *2011 Output Area Boundaries, Extent of the Realm* zip file (~28MB).
+    The projection is **British National Grid, OSGB_1936**
+  - Northern Ireland: go to [NISRA Geography](http://www.nisra.gov.uk/geography/SmallAreas.htm)
+    and download the *ESRI Shapefile format* zip file (~25MB) at the botttom of the page under the heading **Small Area Boundaries in GIS format**.
+    The projection is **Irish Grid, GCS_TM65**
+
+Unzip all the files, keep only the ones with the extensions: **shp** (geometry), **shx** (index), **prj** (projection), and **dbf** (data); rename the blocks as: **EW.*** (England and Wales), **SC.*** (Scotland), **NI.*** (northern Ireland).
+
 
 ### Boundaries: Merge and Dissolve
 
