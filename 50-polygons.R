@@ -2,7 +2,7 @@
 # 50- WORK WITH BOUNDARIES (POLYGONS)
 ###############################################################
 
-#### 1- Merge shapefiles: Output Areas from ENG, WLS, SCO, NIE into one unique file for UK --------------------------------------
+### 1- Blend Output Areas from ENG, WLS, SCO, NIE into one unique file for the UK as a whole --------------------------------------
 # Download the Output Areas (OA) boundaries for each country :
 #   - England and Wales (EW): browse to [COA Boundaries](http://geoportal.statistics.gov.uk/datasets?q=COA%20Boundaries&sort_by=name) 
 #     and download the *Generalised Clipped boundaries* full dataset shapefile (~50MB). The projection is [British National Grid, OSGB_1936](http://spatialreference.org/ref/epsg/osgb-1936-british-national-grid/)
@@ -16,7 +16,12 @@
 library('rgdal')     # easily read/write the shapefiles, and automatically apply the projection contained in the prj file
 library('maptools')  # merge multiple Spatial objects
 # set the directory of the boundaries shapefiles
-boundaries.path <- '/path/to/shapefiles' # DO NOT insert the final backslash!!!
+boundaries.path <- 
+    if(substr(Sys.info()['sysname'], 1, 1) == 'W'){
+        'D:/cloud/OneDrive/data/UK/geography/boundaries'
+    } else {
+        '/home/datamaps/data/UK/geography/boundaries'
+    }
 # set the projection string for WGS84
 proj.wgs <- '+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0'
 
@@ -51,76 +56,168 @@ shp.ni <- spChFIDs(shp.ni, as.character(shp.ni$id))
 # Create the UK boundaries as a merge of all previous boundaries
 shp.uk <- spRbind(spRbind(shp.ew, shp.sc), shp.ni)
 
-# save merged polygons as a unique shapefile. Ensure there are no such files in the given path
-writeOGR(shp.uk, dsn = boundaries.path, layer = 'UK', driver = 'ESRI Shapefile')
-
 # you could try to look at the result, but it takes a while...
 plot(shp.uk)
 
+# instead, count by country:
+table(substr(shp.uk@data$id, 1, 1))
+# and it should return the following result (for 2011 census):  E 171372, N 4537, S 46351, W 10036 
 
-#### 2- Output Area to Postcode Sectors, Districts, Areas -----------------------------------------------------------------------
+
+### 2- Merge polygons to create a boundary shapefile for a parent level ---------------------------------------------------------
 
 # load packages
-library(data.table)
+library(RMySQL)
 library(rgdal)
 library(rmapshaper)
 library(maptools)
-# set variables
-boundaries.path <- 'D:/cloud/OneDrive/data/UK/geography/boundaries'     # DO NOT include the last backslash
-data.path <- 'D:/cloud/OneDrive/data/UK/geography/lookups/'
 
-area <- 'PCS'
-# read base polygons from shapefile
-shp.base <- readOGR(boundaries.path, layer = 'OA')
-#  read lookups
-lookups <- fread(paste0(data.path, 'OA_to_PCS.csv'))
-# join shapefile data slot and lookup table on the area code 
-shp.base <- merge(shp.base, lookups[, .(OA, area = get(area))], by.x = 'id', by.y = 'OA')
-# Build the list of subareas 
-subareas <- sort(unique(shp.base[['area']]))
-# Define first area
-subarea <- subareas[1]
-# Print a processing message
-print(paste('Processing', area, 'subarea', subarea, '- number 1 out of', length(subareas)))
-# select all OA contained in first subarea
-shp.area <- subset(shp.base, shp.base[['area']] == subarea)
-# dissolve submap
-shp.area <- ms_dissolve(shp.area)
-# define object id
-shp.area$id <- subarea
-shp.area <- spChFIDs(shp.area, as.character(shp.area$id))
-# proceed in the same way for all other subareas, attaching every results to previous object
-for(idx in 2:length(subareas)){
-    subarea <- subareas[idx]
-    print(paste('Processing', area, 'subarea', subarea, '- number', idx, 'out of', length(subareas)))
-    shp.tmp <- subset(shp.base, shp.base[['area']] == subarea)
+# set variables
+boundaries.path <- # DO NOT include the last backslash    } else {
+    if(substr(Sys.info()['sysname'], 1, 1) == 'W'){
+        'D:/cloud/OneDrive/data/UK/geography/boundaries'
+    } else {
+        '/home/datamaps/data/UK/geography/boundaries'
+    }
+
+# define helper functions
+merge.subpoly <- function(subarea){
+    # select all child polygons contained in specified parent polygon
+    shp.tmp <- subset(shp.base, shp.base[['parent']] == subarea)
+    # delete interiors
     shp.tmp <- ms_dissolve(shp.tmp)
+    # define new polygon id
     shp.tmp$id <- subarea
     shp.tmp <- spChFIDs(shp.tmp, as.character(shp.tmp$id))
-    shp.area <- spRbind(shp.area, shp.tmp)
+    return(shp.tmp)
 }
+
+child <- 'PCD'
+parent <- 'PCA'
+
+# read base polygons from shapefile
+shp.base <- readOGR(boundaries.path, layer = child)
+
+# read lookups
+db_conn <- dbConnect(MySQL(), group = 'local', dbname = 'geographyUK')
+lkp <- dbGetQuery(db_conn, paste('SELECT DISTINCT', child, 'AS child,', parent, 'AS parent FROM lookups') )
+dbDisconnect(db_conn)
+
+# join shapefile data slot and lookup table on the child code 
+shp.base <- merge(shp.base, lkp, by.x = 'id', by.y = 'child')
+
+# Build the list of subareas 
+subareas <- sort(unique(shp.base[['parent']]))
+
+# Define first parent polygon
+print(paste('Processing', parent, 'subarea', subarea, '- number 1 out of', length(subareas)))
+shp.area <- merge.subpoly(subareas[1])
+
+# proceed for all other parent polygons, attaching every results to previous object
+for(idx in 2:length(subareas)){
+    print(paste('Processing', parent, 'subarea', subarea, '- number', idx, 'out of', length(subareas)))
+    shp.area <- spRbind(shp.area, merge.subpoly(subareas[idx]))
+}
+
+# save full result before simplifying (in case, remove old shapefiles)
+if(file.exists(paste0(boundaries.path, '/originals/', parent, '.shp') ) ) 
+    file.remove(paste0(boundaries.path, '/originals/', parent, '.', c('shp', 'prj', 'dbf', 'shx')))
+writeOGR(shp.area, dsn = paste0(boundaries.path, '/originals'), layer = area, driver = 'ESRI Shapefile')
+
 # reduce the details of the boundaries
-shp.area <- ms_simplify(shp.area, keep = 0.05)
+shp.area <- ms_simplify(shp.area, keep = 0.1, keep_shapes = TRUE)
+
 # delete the rmapshaperid from Polygons
 shp.area <- shp.area[, 'id']
-# save Polygons as shapefile
+
+# save Polygons as shapefile (in case, remove old shapefiles)
+if(file.exists(paste0(boundaries.path, '/', parent, '.shp') ) ) 
+    file.remove(paste0(boundaries.path, '/', parent, '.', c('shp', 'prj', 'dbf', 'shx')))
 writeOGR(shp.area, dsn = boundaries.path, layer = area, driver = 'ESRI Shapefile')
 
 
-get.bnd.subarea <- function(subarea) {
-  # select all base areas contained in subarea
-  shp.tmp <- subset(shp.base, shp.base[['area']] == subarea)
-  # dissolve submap
-  shp.tmp <- ms_dissolve(shp.tmp)
-  # define object id
-  shp.tmp$id <- subarea
-  shp.tmp <- spChFIDs(shp.tmp, as.character(shp.tmp$id))
-  return(shp.tmp)
+
+
+
+
+### 3- Calculate Length (perimeter), Area and (geometric) Centroids -------------------------------------------------------------
+
+get.poly.measures <- function(shp, proj, holes = TRUE, cond = NULL){
+    if(!is.null(cond)) shp <- subset(shp, eval(parse(text = cond) ) )
+    xy <- as.data.frame(gCentroid(shp, byid = TRUE))
+    shp <- spTransform(shp, CRS(proj))
+    area <- as.data.frame(
+        if(holes){
+            sapply(shp@polygons, function(x) x@Polygons[[1]]@area)
+        } else {
+            gArea(shp, byid = TRUE)
+        }
+    )
+    cbind( shp@data, xy, as.data.frame(gLength(shp, byid = TRUE)), area )
 }
 
+calc.measures <- function(area){
+    library(RMySQL)
+    library(rgdal)
+    library(rgeos)
+    my.path <- 
+        if(substr(Sys.info()['sysname'], 1, 1) == 'W'){
+            'D:/cloud/OneDrive/data/UK/geography/'
+        } else {
+            '/home/datamaps/data/UK/geography/'
+        }
+    boundaries.path <- paste0(my.path, 'boundaries/originals')
+    data.path <- paste0(my.path, 'measures/')
+    print(paste0('Loading boundaries...'))
+    shp <- readOGR(boundaries.path, area)
+    print(paste0('Loading lookups...'))
+    db_conn <- dbConnect(MySQL(), group = 'local', dbname = 'geographyUK')
+    lkp <- dbGetQuery(db_conn, paste('SELECT DISTINCT CTRY,', area, 'FROM lookups') )
+    dbDisconnect(db_conn)
+    print(paste0('Merging boundaries and lookups...'))
+    shp@data <- merge(shp@data, lkp, by.x = 'id', by.y = area)
+    print(paste0('Calculating measures...'))
+    y <- rbind(
+            get.poly.measures(shp, proj = '+init=epsg:27700', cond = "CTRY != 'N92000002'" ),  # ENG-SCO-WLS using British Grid
+            get.poly.measures(shp, proj = '+init=epsg:29902', cond = "CTRY == 'N92000002'" )   # NIE using Irish Grid
+    )
+    y$CTRY <- NULL
+    colnames(y) <- c('id', 'X_lon', 'Y_lat', 'perimeter', 'area')
+    fn <- paste0(area, '_measures.csv')
+    print(paste('Saving file', fn, 'to', data.path))
+    write.csv(y[order(y$id),], paste0(data.path, area, '_measures.csv'), row.names = FALSE)
+    print('Done!')
+}
+calc.measures('OA')
+
+# Some area like Postcodes Sectors have polygons overlapping countries, resulting in duplications and errors when applying previous filters
+y <- rbind(
+        get.poly.measures(shp, proj = '+init=epsg:27700', cond = "CTRY != 'N92000002'" ),
+        get.poly.measures(shp, proj = '+init=epsg:29902', cond = "CTRY == 'N92000002'" )
+)
 
 
-### CONVERT SHAPEFILE TO DATAFRAME FORMAT (for use in ggplot)
+
+### 4- Associating points with polygons (given a POI coordinates, find the corresponding output area) ---------------------------
+
+# read output areas (OA) boundaries
+bnd <- readOGR(boundaries.path, 'OAsmp')
+
+# read postcodes centroid
+db_conn <- dbConnect(MySQL(), group = 'local', dbname = 'geographyUK')
+postcodes <- data.table(dbGetQuery(db_conn, 'SELECT postcode, X_lon, Y_lat, OA FROM postcodes'), key = 'postcode')
+dbDisconnect(db_conn)
+# convert the postcodes dataframe to a spatial object with convenient projection
+coordinates(postcodes) <- ~ X_lon + Y_lat  
+proj4string(postcodes) <- proj4string(bnd)
+
+
+
+### 8- Create Voronoi diagram (for postcodes areas?) ----------------------------------------------------------------------------
+
+
+
+### 9- Convert SpatialPolygon to dataframe (for use in ggplot)
 # Print a processing message
 print(paste('Saving', area, 'in dataframe format'))
 # save lookup (rmapshaperid, id) adding the area type
@@ -152,19 +249,4 @@ dbDisconnect(db_conn)
 
 
 
-
-### - Associating points with polygons. case Study: given the postcodes' centroids, find the corresponding output area
-
-# read output areas (OA) boundaries
-bnd <- readOGR(boundaries.path, 'OAsmp')
-
-# read postcodes centroid
-db_conn <- dbConnect(MySQL(), group = 'local', dbname = 'geographyUK')
-postcodes <- data.table(dbGetQuery(db_conn, 'SELECT postcode, X_lon, Y_lat, OA FROM postcodes'), key = 'postcode')
-dbDisconnect(db_conn)
-# convert the postcodes dataframe to a spatial object with convenient projection
-coordinates(postcodes) <- ~ X_lon + Y_lat  
-proj4string(postcodes) <- proj4string(bnd)
-
-### Create Voronoi boundaries for postcodes Case Study
 

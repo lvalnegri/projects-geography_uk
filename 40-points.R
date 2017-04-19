@@ -2,26 +2,23 @@
 # 40- WORK WITH LOCATIONS (POINTS)
 ###############################################################
 
-### 1- Load packages, Set variables ---------------------------------------------------------------------------------------------
-pkg <- c('data.table', 'rgdal', 'RMySQL')
-pkg <- lapply(pkg, require, character.only = TRUE)
-data.path <- 
+# load packages
+library(rgdal)
+library(rgeos)
+
+# set variables
+boundaries.path <- 
     if(substr(Sys.info()['sysname'], 1, 1) == 'W'){
-        'D:/cloud/OneDrive/data/UK/geography/postcodes/'
+        'D:/cloud/OneDrive/data/UK/geography/boundaries'
     } else {
-        
+        '/home/datamaps/data/UK/geography/boundaries'
     }
 
-### 2- Load data ----------------------------------------------------------------------------------------------------------------
-db_conn <- dbConnect(MySQL(), group = 'homeserver', dbname = 'geographyUK')
-strSQL = "
-"
-dataset <- data.table(dbGetQuery(db_conn, strSQL), key = '')
-dataset <- data.table(dbReadTable(db_conn, 'postcodes'), key = '')
+# read base polygons from shapefile
+shp.base <- readOGR(boundaries.path, layer = 'OA')
+proj.wgs <- '+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0'
 
 
-### - CLEAN & EXIT -------------------------------------------------------------------------------------------------------------
-dbDisconnect(db_conn)
-rm(list = ls())
-gc()
+
+# Points in Polygons
 
