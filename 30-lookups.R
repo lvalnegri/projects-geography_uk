@@ -2,7 +2,59 @@
 # 30- LOOKUPS
 ###############################################################
 
-#### 1- Output Area to Postcode Sectors, Districts and Areas  -------------------------------------------------------------------
+#### 0- Generic function to build lookups for child vs parent areas from postcodes CSV / DB for UK ------------------------------
+
+build.lookups.table <- function(child, parent, 
+                                use.csv = FALSE, 
+                                csv.path = 'D:/cloud/OneDrive/data/UK/geography/postcodes/', 
+                                csv.fn = 'ONSPD',
+                                filter.regions = NA,
+                                save.results = FALSE,
+                                out.path = 'D:/cloud/OneDrive/data/UK/geography/lookups/'
+                        ){
+    #
+    # This function should not be used with 'OA' as child and "use.csv" = TRUE 
+    # because in the postcodes file from ONS there are 265 OAs missing (36 ENG, 229 SCO) 
+    #
+    library(data.table)
+    if(use.csv){
+        if(substr(csv.path, nchar(csv.path), nchar(csv.path)) != '/') csv.path <- paste0(csv.path, '/')
+        postcodes <- fread(paste0(csv.path, 'ONSPD.csv'), select = c('osgrdind', child, parent) )
+        postcodes <- postcodes[osgrdind < 9]
+        postcodes[, osgrdind := NULL]
+    } else {
+        library(RMySQL)
+        db_conn <- dbConnect(MySQL(), group = 'local', dbname = 'geographyUK')
+        postcodes <- data.table( dbGetQuery(db_conn, paste('SELECT ', child, ',', parent, 'FROM postcodes') ) )
+        dbDisconnect(db_conn)
+    }
+    setnames(postcodes, c('child', 'parent'))
+    y <- unique(postcodes[, .(child, parent)])[, .N, child][N == 1][, child]
+    if(length(y) > 0) 
+        y1 <- unique(postcodes[child %in% y, .(child, parent, pct = 100)])
+    y <- unique(postcodes[, .(child, parent)])[, .N, child][N > 1][, child]
+    if(length(y) > 0){
+        y2 <- postcodes[child %in% y][, .N, .(child, parent)][order(child, -N)][, pct := round(100 * N / sum(N), 2), child][, .SD[1], child][, .(child, parent, pct)]
+        # y2 <- postcodes[child %in% y][, .N, .(child, parent)][order(child, -N)][, .SD[1], child][, .(child, parent)]
+        # yp <- postcodes[child %in% y][, .N, .(child, parent)][order(child, -N)][, pct := round(100 * N / sum(N), 2), child][, .(mp = max(pct)), child][order(-mp)]
+    }
+    if(!exists('y1')){
+        y <- y2   
+    } else if(!exists('y2')){
+        y <- y1
+    } else {
+        y <- rbindlist(list(y1, y2))
+    }
+    setnames(y, c(child, parent, 'pct'))
+    if(save.results){
+        if(substr(out.path, nchar(out.path), nchar(out.path)) != '/') out.path <- paste0(out.path, '/')
+        write.csv(y[order(child)], paste0(out.path, child, '_to_', parent, '.csv'), row.names = FALSE)
+    }
+    return(y)
+}
+w <- build.lookups.table('OA', 'WARD')
+
+#### 1- Output Area to Postcode Sectors, Districts and Areas for UK -------------------------------------------------------------
 
 # load packages
 library(data.table)
@@ -65,7 +117,7 @@ rm(list = ls())
 gc()
 
 
-#### 2- Output Area to LAU2  ------------------------------------------------
+#### 2- Output Area to LAU2 for UK ----------------------------------------------------------------------------------------------
 library(data.table)
 
 ### England and Wales
