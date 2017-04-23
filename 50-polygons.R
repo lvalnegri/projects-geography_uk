@@ -64,7 +64,12 @@ table(substr(shp.uk@data$id, 1, 1))
 # and it should return the following result (for 2011 census):  E 171372, N 4537, S 46351, W 10036 
 
 
-### 2- Merge polygons to create a boundary shapefile for a parent level ---------------------------------------------------------
+
+
+
+
+
+### 3- Merge polygons to create a boundary shapefile for a parent level ---------------------------------------------------------
 
 
 # load packages
@@ -179,82 +184,6 @@ query.boundaries <- function(area.type, parent.type, parent.ids, simplify = FALS
 }
 
 query.boundaries('OA', 'RGN', "'E12000007'", save.shp = TRUE, add.to.path = 'london')
-
-
-
-library(leaflet)
-shp.t %>% leaflet() %>% addTiles() %>% addPolygons()
-
-
-data <- c(code = 1010010, type = 'OA')
-
-
-
-### 5- Create loolkups for between child and parent from postcode -------------------------------------------------------------
-
-
-# LOOUKPS OA TO LAU2 FOR NIE
-library(data.table)
-# read postcodes data
-postcodes <- fread('D:/cloud/OneDrive/data/UK/geography/postcodes/ONSPD.csv', select = c('nuts', 'osgrdind', 'ctry', 'oa11') )
-# keep only irish postcodes with valid coordinates
-postcodes <- postcodes[osgrdind < 9 & ctry == 'N92000002']
-#delete grid and country columns
-postcodes[, `:=`(osgrdind = NULL, ctry = NULL)]
-# extract exact lookups
-y <- unique(postcodes[, .(oa11, pfa)])[, .N, oa11][N == 1][, oa11]
-nie1 <- unique(postcodes[oa11 %in% y, .(oa11, pfa)])
-# extract overlapping and associate each OA with the sector having more postcodes
-y <- unique(postcodes[, .(oa11, pfa)])[, .N, oa11][N > 1][, oa11]
-nie2 <- postcodes[oa11 %in% y][, .N, .(oa11, pfa)][order(oa11, -N)][, .SD[1], oa11][, .(oa11, pfa)]
-# if you want to check the proportion of covered area:
-postcodes[oa11 %in% y][, .N, .(oa11, pfa)][order(oa11, -N)][, pct := round(100 * N / sum(N), 2), oa11][, .(mp = max(pct)), oa11][order(-mp)]
-
-nie <- rbindlist(list(nie1, nie2))
-setnames(nie, c('OA', 'LAU2'))
-write.csv(nie, 'D:/cloud/OneDrive/data/UK/geography/lookups/OA_to_LAU.csv', row.names = FALSE)
-
-
-
-# LOOUKPS OA TO PFA for England only
-library(data.table)
-postcodes <- fread('D:/cloud/OneDrive/data/UK/geography/postcodes/ONSPD.csv', select = c('pfa', 'osgrdind', 'ctry', 'oa11') )
-postcodes <- postcodes[osgrdind < 9 & ctry == 'E92000001']
-postcodes[, `:=`(osgrdind = NULL, ctry = NULL)]
-y <- unique(postcodes[, .(oa11, pfa)])[, .N, oa11][N == 1][, oa11]
-y1 <- unique(postcodes[oa11 %in% y, .(oa11, pfa)])
-y <- unique(postcodes[, .(oa11, pfa)])[, .N, oa11][N > 1][, oa11]
-y2 <- postcodes[oa11 %in% y][, .N, .(oa11, pfa)][order(oa11, -N)][, .SD[1], oa11][, .(oa11, pfa)]
-# if you want to check the proportion of covered area:
-postcodes[oa11 %in% y][, .N, .(oa11, pfa)][order(oa11, -N)][, pct := round(100 * N / sum(N), 2), oa11][, .(mp = max(pct)), oa11][order(-mp)]
-
-y <- rbindlist(list(y1, y2))
-setnames(y, c('OA', 'PFA'))
-write.csv(nie, 'D:/cloud/OneDrive/data/UK/geography/lookups/OA_to_PFA.csv', row.names = FALSE)
-
-
-
-# LOOUKPS OA TO PCON
-library(data.table)
-postcodes <- fread('D:/cloud/OneDrive/data/UK/geography/postcodes/ONSPD.csv', select = c('pcon', 'osgrdind', 'oa11') )
-postcodes <- postcodes[osgrdind < 9]
-postcodes[, osgrdind := NULL]
-y <- unique(postcodes[, .(oa11, pcon)])[, .N, oa11][N == 1][, oa11]
-y1 <- unique(postcodes[oa11 %in% y, .(oa11, pcon)])
-y <- unique(postcodes[, .(oa11, pcon)])[, .N, oa11][N > 1][, oa11]
-y2 <- postcodes[oa11 %in% y][, .N, .(oa11, pcon)][order(oa11, -N)][, .SD[1], oa11][, .(oa11, pcon)]
-yp <- postcodes[oa11 %in% y][, .N, .(oa11, pcon)][order(oa11, -N)][, pct := round(100 * N / sum(N), 2), oa11][, .(mp = max(pct)), oa11][order(-mp)]
-y <- rbindlist(list(y1, y2))
-setnames(y, c('OA', 'PCON'))
-write.csv(y[order(OA)], 'D:/cloud/OneDrive/data/UK/geography/lookups/OA_to_PCON.csv', row.names = FALSE)
-
-
-
-
-
-
-
-
 
 
 
