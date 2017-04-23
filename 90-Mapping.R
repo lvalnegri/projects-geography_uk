@@ -11,10 +11,10 @@
 
 
 
-library(rgdal)
-library(leaflet)
-library(htmltools)
-plot.boundaries <- function(type, parent = NA, ){
+plot.boundaries <- function(type, parent.type = NA, parent.code = NA){
+    library(rgdal)
+    library(leaflet)
+    library(htmltools)
     shp <- readOGR(boundaries.path, type)
     if(!is.na(type)){
         db_conn <- dbConnect(MySQL(), group = 'local', dbname = 'geographyUK')
