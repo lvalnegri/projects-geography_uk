@@ -33,11 +33,8 @@ build.lookups.table <- function(child, parent,
     if(length(y) > 0) 
         y1 <- unique(postcodes[child %in% y, .(child, parent, pct = 100)])
     y <- unique(postcodes[, .(child, parent)])[, .N, child][N > 1][, child]
-    if(length(y) > 0){
+    if(length(y) > 0)
         y2 <- postcodes[child %in% y][, .N, .(child, parent)][order(child, -N)][, pct := round(100 * N / sum(N), 2), child][, .SD[1], child][, .(child, parent, pct)]
-        # y2 <- postcodes[child %in% y][, .N, .(child, parent)][order(child, -N)][, .SD[1], child][, .(child, parent)]
-        # yp <- postcodes[child %in% y][, .N, .(child, parent)][order(child, -N)][, pct := round(100 * N / sum(N), 2), child][, .(mp = max(pct)), child][order(-mp)]
-    }
     if(!exists('y1')){
         y <- y2   
     } else if(!exists('y2')){
@@ -52,7 +49,7 @@ build.lookups.table <- function(child, parent,
     }
     return(y)
 }
-w <- build.lookups.table('OA', 'WARD')
+w <- build.lookups.table('LAD', 'PFA')
 
 #### 1- Output Area to Postcode Sectors, Districts and Areas for UK -------------------------------------------------------------
 
