@@ -66,6 +66,7 @@ table(substr(shp.uk@data$id, 1, 1))
 
 ### 2- Merge polygons to create a boundary shapefile for a parent level ---------------------------------------------------------
 
+
 # load packages
 library(RMySQL)
 library(rgdal)
@@ -73,17 +74,16 @@ library(rmapshaper)
 library(maptools)
 
 # set variables
-boundaries.path <- # DO NOT include the last backslash    } else {
+boundaries.path <- # DO NOT include the last backslash
     if(substr(Sys.info()['sysname'], 1, 1) == 'W'){
-        'D:/cloud/OneDrive/data/UK/geography/boundaries'
+        'D:/cloud/OneDrive/data/UK/geography/boundaries/london'
     } else {
         '/home/datamaps/data/UK/geography/boundaries'
     }
-
 # define helper functions
-merge.subpoly <- function(subarea){
+merge.subpoly <- function(shp, subarea){
     # select all child polygons contained in specified parent polygon
-    shp.tmp <- subset(shp.base, shp.base[['parent']] == subarea)
+    shp.tmp <- subset(shp, shp[['parent']] == subarea)
     # delete interiors
     shp.tmp <- ms_dissolve(shp.tmp)
     # define new polygon id
@@ -91,56 +91,175 @@ merge.subpoly <- function(subarea){
     shp.tmp <- spChFIDs(shp.tmp, as.character(shp.tmp$id))
     return(shp.tmp)
 }
-
-child <- 'PCD'
-parent <- 'PCA'
-
-# read base polygons from shapefile
-shp.base <- readOGR(boundaries.path, layer = child)
-
-# read lookups
-db_conn <- dbConnect(MySQL(), group = 'local', dbname = 'geographyUK')
-lkp <- dbGetQuery(db_conn, paste('SELECT DISTINCT', child, 'AS child,', parent, 'AS parent FROM lookups') )
-dbDisconnect(db_conn)
-
-# join shapefile data slot and lookup table on the child code 
-shp.base <- merge(shp.base, lkp, by.x = 'id', by.y = 'child')
-
-# Build the list of subareas 
-subareas <- sort(unique(shp.base[['parent']]))
-
-# Define first parent polygon
-print(paste('Processing', parent, 'subarea', subarea, '- number 1 out of', length(subareas)))
-shp.area <- merge.subpoly(subareas[1])
-
-# proceed for all other parent polygons, attaching every results to previous object
-for(idx in 2:length(subareas)){
-    print(paste('Processing', parent, 'subarea', subarea, '- number', idx, 'out of', length(subareas)))
-    shp.area <- spRbind(shp.area, merge.subpoly(subareas[idx]))
+build.parent.boundaries <- function(parent, child, simplify = FALSE, keep.pct = 0.2){
+    # read base polygons from shapefile
+    shp.base <- readOGR(boundaries.path, layer = child)
+    # read lookups
+    db_conn <- dbConnect(MySQL(), group = 'local', dbname = 'geographyUK')
+    lkp <- dbGetQuery(db_conn, paste('SELECT DISTINCT', child, 'AS child,', parent, 'AS parent FROM lookups') )
+    dbDisconnect(db_conn)
+    # join shapefile data slot and lookup table on the child code 
+    shp.base <- merge(shp.base, lkp, by.x = 'id', by.y = 'child')
+    # Build the list of subareas 
+    subareas <- sort(unique(shp.base[['parent']]))
+    # Define first parent polygon
+    print(paste('Processing', parent, 'subarea', subareas[1], '- number 1 out of', length(subareas)))
+    shp.area <- merge.subpoly(shp.base, subareas[1])
+    # proceed for all other parent polygons, attaching every results to previous object
+    for(idx in 2:length(subareas)){
+        print(paste('Processing', parent, 'subarea', subareas[idx], '- number', idx, 'out of', length(subareas)))
+        shp.area <- spRbind(shp.area, merge.subpoly(shp.base, subareas[idx]))
+    }
+    # delete the rmapshaperid from Polygons
+    shp.area <- shp.area[, 'id']
+    # simplification should only happens when child is OA
+    if(simplify){
+        # save full result before simplifying (in case, remove old shapefiles)
+        if(file.exists(paste0(boundaries.path, '/originals/', parent, '.shp') ) ) 
+            file.remove(paste0(boundaries.path, '/originals/', parent, '.', c('shp', 'prj', 'dbf', 'shx')))
+        writeOGR(shp.area, dsn = paste0(boundaries.path, '/originals'), layer = parent, driver = 'ESRI Shapefile')
+        # reduce the details of the boundaries, the control is needed because the process of simplification could entirely dissove some polygons
+        repeat{
+            print(paste('Trying', keep.pct))
+            shp.area.s <- ms_simplify(shp.area, keep = keep.pct, keep_shapes = TRUE)
+            if(nrow(shp.area) == nrow(shp.area.s)) break
+            keep.pct <- keep.pct + 0.02
+        }
+        print(paste('Simplified with a value of', keep.pct))
+        # delete the rmapshaperid from Polygons
+        shp.area <- shp.area.s[, 'id']
+    }    
+    # save Polygons as shapefile (in case, remove old shapefiles)
+    if(file.exists(paste0(boundaries.path, '/', parent, '.shp') ) ) 
+        file.remove(paste0(boundaries.path, '/', parent, '.', c('shp', 'prj', 'dbf', 'shx')))
+    writeOGR(shp.area, dsn = boundaries.path, layer = parent, driver = 'ESRI Shapefile')
 }
 
-# save full result before simplifying (in case, remove old shapefiles)
-if(file.exists(paste0(boundaries.path, '/originals/', parent, '.shp') ) ) 
-    file.remove(paste0(boundaries.path, '/originals/', parent, '.', c('shp', 'prj', 'dbf', 'shx')))
-writeOGR(shp.area, dsn = paste0(boundaries.path, '/originals'), layer = area, driver = 'ESRI Shapefile')
 
-# reduce the details of the boundaries
-shp.area <- ms_simplify(shp.area, keep = 0.1, keep_shapes = TRUE)
+build.parent.boundaries('LSOA', 'OA', TRUE)
+build.parent.boundaries('MSOA', 'LSOA')
+build.parent.boundaries('LAD', 'MSOA')
+build.parent.boundaries('CTY', 'LAD')
+build.parent.boundaries('RGN', 'CTY')
+build.parent.boundaries('CTRY', 'RGN')
 
-# delete the rmapshaperid from Polygons
-shp.area <- shp.area[, 'id']
-
-# save Polygons as shapefile (in case, remove old shapefiles)
-if(file.exists(paste0(boundaries.path, '/', parent, '.shp') ) ) 
-    file.remove(paste0(boundaries.path, '/', parent, '.', c('shp', 'prj', 'dbf', 'shx')))
-writeOGR(shp.area, dsn = boundaries.path, layer = area, driver = 'ESRI Shapefile')
+build.parent.boundaries('PCS', 'OA', TRUE)
+build.parent.boundaries('PCD', 'PCS')
+build.parent.boundaries('PCA', 'PCD')
 
 
+### 5- Query boundaries for a specified parent area
+
+# load packages
+library(RMySQL)
+library(rgdal)
+library(rmapshaper)
+
+# define helper functions
+query.boundaries <- function(area.type, parent.type, parent.ids, simplify = FALSE, save.shp = FALSE, return.shp = TRUE, add.to.path = NA){
+    boundaries.path <-
+        if(substr(Sys.info()['sysname'], 1, 1) == 'W'){
+            'D:/cloud/OneDrive/data/UK/geography/boundaries'
+        } else {
+            '/home/datamaps/data/UK/geography/boundaries'
+        }
+    shp <- readOGR(boundaries.path, layer = area.type)
+    db_conn <- dbConnect(MySQL(), group = 'local', dbname = 'geographyUK')
+    lkp <- dbGetQuery(db_conn, paste0('SELECT DISTINCT ', area.type, ' FROM lookups WHERE ', parent.type, ' IN (', parent.ids, ')' ))
+    dbDisconnect(db_conn)
+    shp <- subset(shp, shp$id %in% unlist(lkp))
+    if(simplify) shp <- ms_simplify(shp, keep = 0.20, keep_shapes = TRUE)
+    if(save.shp){
+        if(!is.na(add.to.path)) boundaries.path <- paste0(boundaries.path, '/', add.to.path)
+        if(file.exists(paste0(boundaries.path, '/', area.type, '.shp') ) ) 
+            file.remove(paste0(boundaries.path, '/', area.type, '.', c('shp', 'prj', 'dbf', 'shx')))
+        writeOGR(shp, dsn = boundaries.path, layer = area.type, driver = 'ESRI Shapefile')
+    }
+    if(return.shp) return(shp)
+}
+
+query.boundaries('OA', 'RGN', "'E12000007'", save.shp = TRUE, add.to.path = 'london')
+
+
+
+library(leaflet)
+shp.t %>% leaflet() %>% addTiles() %>% addPolygons()
+
+
+data <- c(code = 1010010, type = 'OA')
+
+
+
+### 5- Create loolkups for between child and parent from postcode -------------------------------------------------------------
+
+
+# LOOUKPS OA TO LAU2 FOR NIE
+library(data.table)
+# read postcodes data
+postcodes <- fread('D:/cloud/OneDrive/data/UK/geography/postcodes/ONSPD.csv', select = c('nuts', 'osgrdind', 'ctry', 'oa11') )
+# keep only irish postcodes with valid coordinates
+postcodes <- postcodes[osgrdind < 9 & ctry == 'N92000002']
+#delete grid and country columns
+postcodes[, `:=`(osgrdind = NULL, ctry = NULL)]
+# extract exact lookups
+y <- unique(postcodes[, .(oa11, pfa)])[, .N, oa11][N == 1][, oa11]
+nie1 <- unique(postcodes[oa11 %in% y, .(oa11, pfa)])
+# extract overlapping and associate each OA with the sector having more postcodes
+y <- unique(postcodes[, .(oa11, pfa)])[, .N, oa11][N > 1][, oa11]
+nie2 <- postcodes[oa11 %in% y][, .N, .(oa11, pfa)][order(oa11, -N)][, .SD[1], oa11][, .(oa11, pfa)]
+# if you want to check the proportion of covered area:
+postcodes[oa11 %in% y][, .N, .(oa11, pfa)][order(oa11, -N)][, pct := round(100 * N / sum(N), 2), oa11][, .(mp = max(pct)), oa11][order(-mp)]
+
+nie <- rbindlist(list(nie1, nie2))
+setnames(nie, c('OA', 'LAU2'))
+write.csv(nie, 'D:/cloud/OneDrive/data/UK/geography/lookups/OA_to_LAU.csv', row.names = FALSE)
+
+
+
+# LOOUKPS OA TO PFA for England only
+library(data.table)
+postcodes <- fread('D:/cloud/OneDrive/data/UK/geography/postcodes/ONSPD.csv', select = c('pfa', 'osgrdind', 'ctry', 'oa11') )
+postcodes <- postcodes[osgrdind < 9 & ctry == 'E92000001']
+postcodes[, `:=`(osgrdind = NULL, ctry = NULL)]
+y <- unique(postcodes[, .(oa11, pfa)])[, .N, oa11][N == 1][, oa11]
+y1 <- unique(postcodes[oa11 %in% y, .(oa11, pfa)])
+y <- unique(postcodes[, .(oa11, pfa)])[, .N, oa11][N > 1][, oa11]
+y2 <- postcodes[oa11 %in% y][, .N, .(oa11, pfa)][order(oa11, -N)][, .SD[1], oa11][, .(oa11, pfa)]
+# if you want to check the proportion of covered area:
+postcodes[oa11 %in% y][, .N, .(oa11, pfa)][order(oa11, -N)][, pct := round(100 * N / sum(N), 2), oa11][, .(mp = max(pct)), oa11][order(-mp)]
+
+y <- rbindlist(list(y1, y2))
+setnames(y, c('OA', 'PFA'))
+write.csv(nie, 'D:/cloud/OneDrive/data/UK/geography/lookups/OA_to_PFA.csv', row.names = FALSE)
+
+
+
+# LOOUKPS OA TO PCON
+library(data.table)
+postcodes <- fread('D:/cloud/OneDrive/data/UK/geography/postcodes/ONSPD.csv', select = c('pcon', 'osgrdind', 'oa11') )
+postcodes <- postcodes[osgrdind < 9]
+postcodes[, osgrdind := NULL]
+y <- unique(postcodes[, .(oa11, pcon)])[, .N, oa11][N == 1][, oa11]
+y1 <- unique(postcodes[oa11 %in% y, .(oa11, pcon)])
+y <- unique(postcodes[, .(oa11, pcon)])[, .N, oa11][N > 1][, oa11]
+y2 <- postcodes[oa11 %in% y][, .N, .(oa11, pcon)][order(oa11, -N)][, .SD[1], oa11][, .(oa11, pcon)]
+yp <- postcodes[oa11 %in% y][, .N, .(oa11, pcon)][order(oa11, -N)][, pct := round(100 * N / sum(N), 2), oa11][, .(mp = max(pct)), oa11][order(-mp)]
+y <- rbindlist(list(y1, y2))
+setnames(y, c('OA', 'PCON'))
+write.csv(y[order(OA)], 'D:/cloud/OneDrive/data/UK/geography/lookups/OA_to_PCON.csv', row.names = FALSE)
 
 
 
 
-### 3- Calculate Length (perimeter), Area and (geometric) Centroids -------------------------------------------------------------
+
+
+
+
+
+
+
+
+### 4- Calculate Length (perimeter), Area and (geometric) Centroids -------------------------------------------------------------
 
 get.poly.measures <- function(shp, proj, holes = TRUE, cond = NULL){
     if(!is.null(cond)) shp <- subset(shp, eval(parse(text = cond) ) )
@@ -198,7 +317,7 @@ y <- rbind(
 
 
 
-### 4- Associating points with polygons (given a POI coordinates, find the corresponding output area) ---------------------------
+### 5- Associating points with polygons (given a POI coordinates, find the corresponding output area) ---------------------------
 
 # read output areas (OA) boundaries
 bnd <- readOGR(boundaries.path, 'OAsmp')
