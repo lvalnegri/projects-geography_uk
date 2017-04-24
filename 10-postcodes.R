@@ -37,7 +37,7 @@ onspd <- onspd[osgrdind < 9, .(
                     postcode = pcd, 
                     is_active = as.numeric(doterm == ''), usertype, X_lon = long, Y_lat = lat,
                     OA = oa11, LSOA = lsoa11, MSOA = msoa11, LAD = oslaua, CTY = oscty, RGN = gor, CTRY = ctry, BUA = bua11, BUAS = buasd11,
-                    WARD = osward, PCON = pcon, LAU2 = nuts, TTWA = ttwa, WKZ = wz11, PFA = pfa, LLSC = teclec, LEA = lea, PAR = parish, 
+                    WARD = osward, PCON = pcon, LAU2 = nuts, TTWA = ttwa, WPZ = wz11, PFA = pfa, LLSC = teclec, LEA = lea, PAR = parish, 
                     PCT = pct, SHA = oshlthau, SHAO = oshaprev, CCG = ccg
 )]
 
