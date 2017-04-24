@@ -42,14 +42,17 @@ build.lookups.table <- function(child, parent,
     } else {
         y <- rbindlist(list(y1, y2))
     }
+    y <- y[order(child)]
     setnames(y, c(child, parent, 'pct'))
     if(save.results){
         if(substr(out.path, nchar(out.path), nchar(out.path)) != '/') out.path <- paste0(out.path, '/')
-        write.csv(y[order(child)], paste0(out.path, child, '_to_', parent, '.csv'), row.names = FALSE)
+        write.csv(y, paste0(out.path, child, '_to_', parent, '.csv'), row.names = FALSE)
     }
     return(y)
 }
-w <- build.lookups.table('LAD', 'PFA')
+p <- build.lookups.table('OA', 'WARD', save.results = TRUE)
+p <- build.lookups.table('OA', 'PCON', save.results = TRUE)
+p <- build.lookups.table('LSOA', 'TTWA', save.results = TRUE)
 
 #### 1- Output Area to Postcode Sectors, Districts and Areas for UK -------------------------------------------------------------
 
@@ -148,53 +151,3 @@ write.csv(uk, 'D:/cloud/OneDrive/data/UK/geography/lookups/OA_to_LAU.csv', row.n
 rm(list = ls())
 gc()
 
-
-#### 3- Output Area to PFA for England and Wales  -------------------------------------------------------------------------------
-library(data.table)
-postcodes <- fread('D:/cloud/OneDrive/data/UK/geography/postcodes/ONSPD.csv', select = c('pfa', 'osgrdind', 'ctry', 'oa11') )
-postcodes <- postcodes[osgrdind < 9 & ctry %in% c('E92000001', 'W92000004')]
-postcodes[, `:=`(osgrdind = NULL, ctry = NULL)]
-y <- unique(postcodes[, .(oa11, pfa)])[, .N, oa11][N == 1][, oa11]
-y1 <- unique(postcodes[oa11 %in% y, .(oa11, pfa)])
-y <- unique(postcodes[, .(oa11, pfa)])[, .N, oa11][N > 1][, oa11]
-y2 <- postcodes[oa11 %in% y][, .N, .(oa11, pfa)][order(oa11, -N)][, .SD[1], oa11][, .(oa11, pfa)]
-postcodes[oa11 %in% y][, .N, .(oa11, pfa)][order(oa11, -N)][, pct := round(100 * N / sum(N), 2), oa11][, .(mp = max(pct)), oa11][order(-mp)]
-y <- rbindlist(list(y1, y2))
-setnames(y, c('OA', 'PFA'))
-write.csv(y[order(OA)], 'D:/cloud/OneDrive/data/UK/geography/lookups/OA_to_PFA.csv', row.names = FALSE)
-rm(list = ls())
-gc()
-
-
-#### 4- Output Area to PCON for UK  -------------------------------------------------------------------------------
-library(data.table)
-postcodes <- fread('D:/cloud/OneDrive/data/UK/geography/postcodes/ONSPD.csv', select = c('pcon', 'osgrdind', 'oa11') )
-postcodes <- postcodes[osgrdind < 9]
-postcodes[, osgrdind := NULL]
-y <- unique(postcodes[, .(oa11, pcon)])[, .N, oa11][N == 1][, oa11]
-y1 <- unique(postcodes[oa11 %in% y, .(oa11, pcon)])
-y <- unique(postcodes[, .(oa11, pcon)])[, .N, oa11][N > 1][, oa11]
-y2 <- postcodes[oa11 %in% y][, .N, .(oa11, pcon)][order(oa11, -N)][, .SD[1], oa11][, .(oa11, pcon)]
-yp <- postcodes[oa11 %in% y][, .N, .(oa11, pcon)][order(oa11, -N)][, pct := round(100 * N / sum(N), 2), oa11][, .(mp = max(pct)), oa11][order(-mp)]
-y <- rbindlist(list(y1, y2))
-setnames(y, c('OA', 'PCON'))
-write.csv(y[order(OA)], 'D:/cloud/OneDrive/data/UK/geography/lookups/OA_to_PCON.csv', row.names = FALSE)
-rm(list = ls())
-gc()
-
-
-#### 5- Output Area to WARD for UK  -------------------------------------------------------------------------------
-library(data.table)
-postcodes <- fread('D:/cloud/OneDrive/data/UK/geography/postcodes/ONSPD.csv', select = c('osward', 'osgrdind', 'oa11') )
-postcodes <- postcodes[osgrdind < 9]
-postcodes[, osgrdind := NULL]
-y <- unique(postcodes[, .(oa11, osward)])[, .N, oa11][N == 1][, oa11]
-y1 <- unique(postcodes[oa11 %in% y, .(oa11, osward)])
-y <- unique(postcodes[, .(oa11, osward)])[, .N, oa11][N > 1][, oa11]
-y2 <- postcodes[oa11 %in% y][, .N, .(oa11, osward)][order(oa11, -N)][, .SD[1], oa11][, .(oa11, osward)]
-yp <- postcodes[oa11 %in% y][, .N, .(oa11, osward)][order(oa11, -N)][, pct := round(100 * N / sum(N), 2), oa11][, .(mp = max(pct)), oa11][order(-mp)]
-y <- rbindlist(list(y1, y2))
-setnames(y, c('OA', 'WARD'))
-write.csv(y[order(OA)], 'D:/cloud/OneDrive/data/UK/geography/lookups/OA_to_WARD.csv', row.names = FALSE)
-rm(list = ls())
-gc()
