@@ -56,21 +56,18 @@ shp.ni <- spChFIDs(shp.ni, as.character(shp.ni$id))
 # Create the UK boundaries as a merge of all previous boundaries
 shp.uk <- spRbind(spRbind(shp.ew, shp.sc), shp.ni)
 
-# you could try to look at the result, but it takes a while...
-plot(shp.uk)
-
-# instead, count by country:
+# count by country:
 table(substr(shp.uk@data$id, 1, 1))
 # and it should return the following result (for 2011 census):  E 171372, N 4537, S 46351, W 10036 
 
+# save Polygons as shapefile (in case, remove old shapefiles)
+if(file.exists(paste0(boundaries.path, '/OA.shp') ) ) 
+    file.remove(paste0(boundaries.path, '/OA.', c('shp', 'prj', 'dbf', 'shx')))
+writeOGR(shp.area, dsn = boundaries.path, layer = 'OA', driver = 'ESRI Shapefile')
 
 
-
-
-
-
-### 3- Merge polygons to create a boundary shapefile for a parent level ---------------------------------------------------------
-
+### 2- Merge polygons to create a boundary shapefile for a parent level ---------------------------------------------------------
+# a functional lookup table is supposed to exists in the geography database
 
 # load packages
 library(RMySQL)
@@ -140,7 +137,6 @@ build.parent.boundaries <- function(parent, child, simplify = FALSE, keep.pct = 
     writeOGR(shp.area, dsn = boundaries.path, layer = parent, driver = 'ESRI Shapefile')
 }
 
-
 build.parent.boundaries('LSOA', 'OA', TRUE)
 build.parent.boundaries('MSOA', 'LSOA')
 build.parent.boundaries('LAD', 'MSOA')
@@ -153,7 +149,7 @@ build.parent.boundaries('PCD', 'PCS')
 build.parent.boundaries('PCA', 'PCD')
 
 
-### 5- Query boundaries for a specified parent area
+### 4- Query boundaries for a specified parent area
 
 # load packages
 library(RMySQL)
@@ -161,17 +157,24 @@ library(rgdal)
 library(rmapshaper)
 
 # define helper functions
-query.boundaries <- function(area.type, parent.type, parent.ids, simplify = FALSE, save.shp = FALSE, return.shp = TRUE, add.to.path = NA){
+query.boundaries <- function(
+                        area.type, parent.type, parent.ids, 
+                        simplify = FALSE, save.shp = FALSE, return.shp = TRUE, 
+                        add.to.path = NA
+){
     boundaries.path <-
         if(substr(Sys.info()['sysname'], 1, 1) == 'W'){
             'D:/cloud/OneDrive/data/UK/geography/boundaries'
         } else {
             '/home/datamaps/data/UK/geography/boundaries'
         }
+    # load boundaries shapefile
     shp <- readOGR(boundaries.path, layer = area.type)
+    # load lookup for child codes included in chosen parent area
     db_conn <- dbConnect(MySQL(), group = 'local', dbname = 'geographyUK')
     lkp <- dbGetQuery(db_conn, paste0('SELECT DISTINCT ', area.type, ' FROM lookups WHERE ', parent.type, ' IN (', parent.ids, ')' ))
     dbDisconnect(db_conn)
+    # filter children polygons included in parent
     shp <- subset(shp, shp$id %in% unlist(lkp))
     if(simplify) shp <- ms_simplify(shp, keep = 0.20, keep_shapes = TRUE)
     if(save.shp){
