@@ -113,7 +113,17 @@ dbSendQuery(db_conn, "TRUNCATE TABLE postcodes")
 dbWriteTable(db_conn, 'postcodes', postcodes, row.names = FALSE, append = TRUE)
 
 
-### 7- CLEAN & EXIT -------------------------------------------------------------------------------------------------------------
+### 8- IMD, OAC, RUC ------------------------------------------------------------------------------------------------------------
+idx <- fread(paste0(data.path, 'ONSPD.csv'), select = c('osgrdind', 'oa11', 'lsoa11', 'imd', 'oac11', 'ru11ind', 'ctry'))
+idx <- idx[osgrdind < 9]
+imd <- unique(idx[ctry != 'N92000002', imd, lsoa11])
+oac <- unique(idx[, oac11, oa11])
+ruc <- unique(idx[ctry != 'N92000002', ru11ind, oa11])
+
+
+
+
+### 9- CLEAN & EXIT -------------------------------------------------------------------------------------------------------------
 dbDisconnect(db_conn)
 rm(list = ls())
 gc()
