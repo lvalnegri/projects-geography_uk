@@ -3,7 +3,10 @@
 
 ### Postcodes
 
-There are two files, [ONSPD](http://geoportal.statistics.gov.uk/datasets?q=ONS+Postcode+Directory+(ONSPD)+zip&sort_by=updated_at) and [NHSPD](http://geoportal.statistics.gov.uk/datasets?q=NHS+Postcode+Directory+(NHSPD)+full+zip&sort_by=updated_at), with mostly overlapping information.
+There are two files:
+ - [ONSPD](http://geoportal.statistics.gov.uk/datasets?q=ONS+Postcode+Directory+(ONSPD)+zip&sort_by=updated_at) 
+ - [NHSPD](http://geoportal.statistics.gov.uk/datasets?q=NHS+Postcode+Directory+(NHSPD)+full+zip&sort_by=updated_at)
+with mostly overlapping information.
 
 Both contain ALL:
  - current (*live*) postcodes within the UK, as received monthly from the various postal admin within the UK
@@ -12,6 +15,19 @@ Both contain ALL:
 We'll be using only the shorter 7-char *PCD* form: 
  - *outward* code as 2/3/4 chars, left aligned (3rd and 4th char may be blank)
  - *inward* code always 3 chars (1st numeric, 2nd and 3rd alpha), right aligned
+
+#### Credits
+Unit postcodes remain the copyright of *Royal Mail*.  All other information on the ONSPD is *Crown* copyright.
+The user should be aware of the attribution and sub-licensing requirements associated with the use of the *Code-Point* Open data (from which postcode products are derived) contained in the OS OpenData Licence, namely that the licensee:
+
+- Must always use the following attribution statements to acknowledge the source of the information: 
+   - Contains OS data © Crown copyright and database right [year] 
+   - Contains Royal Mail data © Royal Mail copyright and database right [year] 
+   - Contains National Statistics data © Crown copyright and database right [year] 
+   
+ - Must ensure that the same attribution statements are contained in any sub-licences of the Information that are granted, together with a requirement that any further sub-licences do the same. 
+ 
+The user should also note that following agreement with Land and Property Services (LPS) Northern Ireland, Open Government Licensing terms do not apply to NI postcodes; separate licensing terms and conditions now apply in the form of an LPS End User licence or contact LPS directly for commercial use. Please see the Licences web page for further details. 
 
 
 ### Locations
