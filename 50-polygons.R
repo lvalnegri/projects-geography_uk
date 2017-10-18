@@ -35,8 +35,8 @@ ni_centroid <- c(x_lon = , y_lat = )
 # Rename the three blocks as: **EW.xxx** (England and Wales), **SC.xxx** (Scotland), **NI.xxx** (Northern Ireland).
 
 # Load the packages. On Linux (Ubuntu) install the following librearies: libproj-dev, libgdal-dev, libv8-dev 
-library('rgdal')     # easily read/write the shapefiles, and automatically apply the projection contained in the prj file
-library('maptools')  # merge multiple Spatial objects
+pkg <- c('maptools', 'rgdal', 'rmapshaper')
+invisible(lapply(pkg, require, char = TRUE))
 
 # set the directory of the boundaries shapefiles. Do NOT end the path with "/" or the boundaries will fail to load! 
 boundaries.path <- 
@@ -80,6 +80,8 @@ shp.ni <- spChFIDs(shp.ni, as.character(shp.ni$id))
 
 # Create the UK boundaries as a merge of all previous boundaries
 shp.uk <- spRbind(spRbind(shp.ew, shp.sc), shp.ni)
+# reduce the complexity of the boundaries (it's a statistical map, not an OS Explorer Map!)
+shp.uk <- ms_simplify(shp.uk, keep = 0.05)
 
 # count by country:
 table(substr(shp.uk@data$id, 1, 1))
@@ -94,22 +96,21 @@ if(file.exists(paste0(boundaries.path, '/OA.shp') ) )
 writeOGR(shp.area, dsn = boundaries.path, layer = 'OA', driver = 'ESRI Shapefile')
 
 
-### 2- Merge polygons to create a boundary shapefile for a parent level ---------------------------------------------------------
-# a functional lookup table is supposed to exists in the geography database
+### 2- Merge polygons from OA shapefile to create a boundary shapefile for a parent level ---------------------------------------------------------
+# a functional "lookups" table is supposed to exists in the geography database
 
 # load packages
-library(RMySQL)
-library(rgdal)
-library(rmapshaper)
-library(maptools)
+pkg <- c('maptools', 'rgdal', 'rmapshaper', 'RMySQL')
+invisible(lapply(pkg, require, char = TRUE))
 
-# set variables
-boundaries.path <- # DO NOT include the last backslash
+# set the directory of the boundaries shapefiles. Do NOT end the path with "/" or the boundaries will fail to load! 
+boundaries.path <- 
     if(substr(Sys.info()['sysname'], 1, 1) == 'W'){
-        'D:/cloud/OneDrive/data/UK/geography/boundaries/london'
+        'D:/cloud/OneDrive/data/UK/geography/boundaries'  # Windows
     } else {
-        '/home/datamaps/data/UK/geography/boundaries'
+        '/home/datamaps/data/UK/geography/boundaries'     # Linux
     }
+
 # define helper functions
 merge.subpoly <- function(shp, subarea){
     # select all child polygons contained in specified parent polygon
@@ -165,6 +166,7 @@ build.parent.boundaries <- function(parent, child, simplify = FALSE, keep.pct = 
     writeOGR(shp.area, dsn = boundaries.path, layer = parent, driver = 'ESRI Shapefile')
 }
 
+# create boundaries for the "" hierarchy
 build.parent.boundaries('LSOA', 'OA', TRUE)
 build.parent.boundaries('MSOA', 'LSOA')
 build.parent.boundaries('LAD', 'MSOA')
@@ -172,9 +174,16 @@ build.parent.boundaries('CTY', 'LAD')
 build.parent.boundaries('RGN', 'CTY')
 build.parent.boundaries('CTRY', 'RGN')
 
+# create boundaries for the "" hierarchy
+
+# create boundaries for the "" hierarchy
+
+# create boundaries for the "postcodes" hierarchy
 build.parent.boundaries('PCS', 'OA', TRUE)
 build.parent.boundaries('PCD', 'PCS')
 build.parent.boundaries('PCA', 'PCD')
+
+# create boundaries for the "Health" hierarchy
 
 
 ### 4- Query boundaries for a specified parent area
@@ -277,7 +286,7 @@ y <- rbind(
 
 
 
-### 5- Associating points with polygons (given a POI coordinates, find the corresponding output area) ---------------------------
+### 5- Associating points with polygons (given a POI coordinates, find the corresponding polygon (or OA id, you can get whatever else using lookups) ---------------------------
 
 # read output areas (OA) boundaries
 bnd <- readOGR(boundaries.path, 'OAsmp')
