@@ -4,26 +4,37 @@
 
 ### 1- Blend Output Areas from England and Wales (EW), Scotland (SC), Northern Ireland (NI) into one unique file for the UK as a whole --------------------------------------
 
-# Download the Output Areas (OA) boundaries for each country :
+## Download the Output Areas (OA) boundaries for each country :
 #   - EW: browse to [COA Boundaries](http://geoportal.statistics.gov.uk/datasets?q=COA%20Boundaries&sort_by=name) 
 #     and download the *Generalised Clipped boundaries* full dataset shapefile (~50MB). 
 #     The projection is [British National Grid, OSGB_1936](http://spatialreference.org/ref/epsg/osgb-1936-british-national-grid/)
+ew_grid <- '+init=epsg:27700'
+#     The bounding box is [, , , ]. The centroid is [, ]
+ew_bbox <- c(, , , )
+ew_centroid <- c(x_lon = , y_lat = )
 #   - SC: open [2011 Census Geography](http://www.nrscotland.gov.uk/statistics-and-data/geography/our-products/census-datasets/2011-census/2011-boundaries) 
 #     and download the *2011 Output Area Boundaries, Extent of the Realm* zip file (~28MB). 
 #     The projection is British National Grid, OSGB_1936
+sc_grid = '+init=epsg:27700'
+#     The bounding box is [, , , ]. The centroid is [, ]
+sc_bbox <- c(, , , )
+sc_centroid <- c(x_lon = , y_lat = )
 #   - NI: go to [NISRA Geography](https://www.nisra.gov.uk/publications/small-area-boundaries-gis-format)
 #     and download the *ESRI Shapefile format* zip file (~25MB). 
 #     The projection is [Irish Grid, GCS_TM65](http://spatialreference.org/ref/epsg/29902/)
-# 
+ni_grid = '+init=epsg:29902' 
+#     The bounding box is [, , , ]. The centroid is [, ]
+ni_bbox <- c(, , , )
+ni_centroid <- c(x_lon = , y_lat = )
 
-# Extract from each archives only the files with the following extensions: 
+## Extract from each archives only the files with the following extensions: 
 #   - **shp** (geometry)
 #   - **shx** (index)
 #   - **prj** (projection)
 #   - **dbf** (data). 
 # Rename the three blocks as: **EW.xxx** (England and Wales), **SC.xxx** (Scotland), **NI.xxx** (Northern Ireland).
 
-# Load the packages
+# Load the packages. On Linux (Ubuntu) install the following librearies: libproj-dev, libgdal-dev, libv8-dev 
 library('rgdal')     # easily read/write the shapefiles, and automatically apply the projection contained in the prj file
 library('maptools')  # merge multiple Spatial objects
 
@@ -72,7 +83,10 @@ shp.uk <- spRbind(spRbind(shp.ew, shp.sc), shp.ni)
 
 # count by country:
 table(substr(shp.uk@data$id, 1, 1))
-# and it should return the following result (for 2011 census):  E 171372, N 4537, S 46351, W 10036 
+# and it should return the following result (for 2011 census):  
+# E 171,372, W 10,036 (EW: 181,408), S 46,351 (GB: 227,759), N 4,537 (UK: 232,296) 
+uk_centroid <- c(x_lon = -2.421976, y_lat = 53.825564)
+uk_bbox <- c(lng1 = 1.8, lat1 = 49.9, lng2 = -8.3, lat2 = 59.0 )
 
 # save Polygons as unique shapefile (in case, remove old shapefiles)
 if(file.exists(paste0(boundaries.path, '/OA.shp') ) ) 
