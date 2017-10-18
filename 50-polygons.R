@@ -2,30 +2,44 @@
 # 50- WORK WITH BOUNDARIES (POLYGONS)
 ###############################################################
 
-### 1- Blend Output Areas from ENG, WLS, SCO, NIE into one unique file for the UK as a whole --------------------------------------
-# Download the Output Areas (OA) boundaries for each country :
-#   - England and Wales (EW): browse to [COA Boundaries](http://geoportal.statistics.gov.uk/datasets?q=COA%20Boundaries&sort_by=name) 
-#     and download the *Generalised Clipped boundaries* full dataset shapefile (~50MB). The projection is [British National Grid, OSGB_1936](http://spatialreference.org/ref/epsg/osgb-1936-british-national-grid/)
-#   - Scotland (SC): open [2011 Census Geography](http://www.nrscotland.gov.uk/statistics-and-data/geography/our-products/census-datasets/2011-census/2011-boundaries) and download the *2011 Output Area Boundaries, Extent of the Realm* zip file (~28MB). The projection is British National Grid, OSGB_1936
-#   - Northern Ireland (NI): go to [NISRA Geography](https://www.nisra.gov.uk/publications/small-area-boundaries-gis-format)
-#     and download the *ESRI Shapefile format* zip file (~25MB). The projection is [Irish Grid, GCS_TM65](http://spatialreference.org/ref/epsg/29902/)
-# 
-# Extract from each archives only the files with the extensions: **shp** (geometry), **shx** (index), **prj** (projection), and **dbf** (data). Rename the three blocks as: **EW.*** (England and Wales), **SC.*** (Scotland), **NI.*** (Northern Ireland).
+### 1- Blend Output Areas from England and Wales (EW), Scotland (SC), Northern Ireland (NI) into one unique file for the UK as a whole --------------------------------------
 
-# load the packages
+# Download the Output Areas (OA) boundaries for each country :
+#   - EW: browse to [COA Boundaries](http://geoportal.statistics.gov.uk/datasets?q=COA%20Boundaries&sort_by=name) 
+#     and download the *Generalised Clipped boundaries* full dataset shapefile (~50MB). 
+#     The projection is [British National Grid, OSGB_1936](http://spatialreference.org/ref/epsg/osgb-1936-british-national-grid/)
+#   - SC: open [2011 Census Geography](http://www.nrscotland.gov.uk/statistics-and-data/geography/our-products/census-datasets/2011-census/2011-boundaries) 
+#     and download the *2011 Output Area Boundaries, Extent of the Realm* zip file (~28MB). 
+#     The projection is British National Grid, OSGB_1936
+#   - NI: go to [NISRA Geography](https://www.nisra.gov.uk/publications/small-area-boundaries-gis-format)
+#     and download the *ESRI Shapefile format* zip file (~25MB). 
+#     The projection is [Irish Grid, GCS_TM65](http://spatialreference.org/ref/epsg/29902/)
+# 
+
+# Extract from each archives only the files with the following extensions: 
+#   - **shp** (geometry)
+#   - **shx** (index)
+#   - **prj** (projection)
+#   - **dbf** (data). 
+# Rename the three blocks as: **EW.xxx** (England and Wales), **SC.xxx** (Scotland), **NI.xxx** (Northern Ireland).
+
+# Load the packages
 library('rgdal')     # easily read/write the shapefiles, and automatically apply the projection contained in the prj file
 library('maptools')  # merge multiple Spatial objects
-# set the directory of the boundaries shapefiles
+
+# set the directory of the boundaries shapefiles. Do NOT end the path with "/" or the boundaries will fail to load! 
 boundaries.path <- 
     if(substr(Sys.info()['sysname'], 1, 1) == 'W'){
-        'D:/cloud/OneDrive/data/UK/geography/boundaries'
+        'D:/cloud/OneDrive/data/UK/geography/boundaries'  # Windows
     } else {
-        '/home/datamaps/data/UK/geography/boundaries'
+        '/home/datamaps/data/UK/geography/boundaries'     # Linux
     }
-# set the projection string for WGS84
+
+# set the correct projection string for WGS84
 proj.wgs <- '+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0'
 
-# English-Welsh
+## process English-Welsh
+# read the shapefile
 shp.ew <- readOGR(boundaries.path, layer = 'EW')
 # check the projection, and read the field to keep as future id; in this case: "oa11cd"
 summary(shp.ew)
@@ -37,7 +51,7 @@ colnames(shp.ew@data) <- c('id')
 # reassign the polygon IDs
 shp.ew <- spChFIDs(shp.ew, as.character(shp.ew$id))
 
-# SCotland
+# process SCotland (follows same steps as EW, see notes above)
 shp.sc <- readOGR(boundaries.path, layer = 'SC')
 summary(shp.sc)
 shp.sc <- spTransform(shp.sc, CRS(proj.wgs))
@@ -45,7 +59,7 @@ shp.sc <- shp.sc[, 'code']
 colnames(shp.sc@data) <- c('id')
 shp.sc <- spChFIDs(shp.sc, as.character(shp.sc$id))
 
-# Northern Ireland
+# process Northern Ireland (follows same steps as EW, see notes above) 
 shp.ni <- readOGR(boundaries.path, layer = 'NI')
 summary(shp.ni)
 shp.ni <- spTransform(shp.ni, CRS(proj.wgs))
@@ -60,7 +74,7 @@ shp.uk <- spRbind(spRbind(shp.ew, shp.sc), shp.ni)
 table(substr(shp.uk@data$id, 1, 1))
 # and it should return the following result (for 2011 census):  E 171372, N 4537, S 46351, W 10036 
 
-# save Polygons as shapefile (in case, remove old shapefiles)
+# save Polygons as unique shapefile (in case, remove old shapefiles)
 if(file.exists(paste0(boundaries.path, '/OA.shp') ) ) 
     file.remove(paste0(boundaries.path, '/OA.', c('shp', 'prj', 'dbf', 'shx')))
 writeOGR(shp.area, dsn = boundaries.path, layer = 'OA', driver = 'ESRI Shapefile')
