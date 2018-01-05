@@ -313,7 +313,7 @@ lkp <- shp.area@data
 lkp$type <- area
 colnames(lkp) <- c('boundary_id', 'id', 'type')
 # connect to database
-db_conn <- dbConnect(MySQL(), user = 'root', password = 'root', dbname = 'geography')
+db_conn <- dbConnect(MySQL(), group = 'local', dbname = 'geography')
 # save lookup to database
 dbSendQuery(db_conn, paste0("DELETE FROM boundaries_ids WHERE type = '", area, "'") )
 dbWriteTable(db_conn, 'boundaries_ids', lkp, row.names = FALSE, append = TRUE)
@@ -326,7 +326,7 @@ setnames(df.area, c('long', 'lat'), c('X_lon', 'Y_lat'))
 # add "type" column
 df.area$type <- area
 # connect to database
-db_conn <- dbConnect(MySQL(), user = 'root', password = 'root', dbname = 'geography')
+db_conn <- dbConnect(MySQL(), group = 'local', dbname = 'geography')
 # save dataframe to database
 dbSendQuery(db_conn, paste0("DELETE FROM boundaries WHERE type = '", area, "'") )
 dbWriteTable(db_conn, 'boundaries', df.area, row.names = FALSE, append = TRUE)
