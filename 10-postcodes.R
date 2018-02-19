@@ -17,7 +17,7 @@ data.path <-
 # load data
 onspd <- fread(paste0(data.path, 'ONSPD.csv'), 
                     select = c(
-                        'pcd', 'doterm', 'oscty', 'oslaua', 'osward', 'usertype', 'osgrdind', 'oshlthau', 'ctry', 'gor', 
+                        'pcd', 'doterm', 'oscty', 'ced', 'oslaua', 'osward', 'usertype', 'osgrdind', 'oshlthau', 'ctry', 'rgn', 
                         'pcon', 'ttwa', 'pct', 'nuts', 'oa11', 'lsoa11', 'msoa11', 'parish', 
                         'wz11', 'ccg', 'bua11', 'buasd11', 'lat', 'long', 'pfa'
                     )
@@ -36,8 +36,8 @@ dcast.data.table(onspd[osgrdind < 9, .N, .(ctry, usertype)][order(ctry, usertype
 # eliminates postcodes without grid reference (osgrdind == 9, deletes also GI/IM), and rename columns
 onspd <- onspd[osgrdind < 9, .(
                     postcode = pcd, is_active = as.numeric(doterm == ''), usertype, x_lon = long, y_lat = lat,
-                    OA = oa11, LSOA = lsoa11, MSOA = msoa11, LAD = oslaua, CTY = oscty, RGN = gor, CTRY = ctry, BUA = bua11, BUAS = buasd11,
-                    WARD = osward, PCON = pcon, LAU2 = nuts, TTWA = ttwa, WPZ = wz11, PFA = pfa, PAR = parish, 
+                    OA = oa11, LSOA = lsoa11, MSOA = msoa11, LAD = oslaua, CTY = oscty, RGN = rgn, CTRY = ctry, BUA = bua11, BUAS = buasd11,
+                    WARD = osward, CED = ced, PCON = pcon, LAU2 = nuts, TTWA = ttwa, WPZ = wz11, PFA = pfa, PAR = parish, 
                     PCT = pct, SHA = oshlthau, CCG = ccg
 )]
 
@@ -92,13 +92,13 @@ write.csv(
 postcodes[OA %in% c('E00005337', 'E00003159')]
 postcodes[postcode == 'CR3 0EA', `:=`(
         LAD = 'E09000008', CTY = 'E99999999', RGN = 'E12000007',
-        WARD = 'E05000156', PCON = 'E14000656', LAU2 = 'E05000156', PFA = 'E23000001', PAR = 'E43000198',
+        WARD = 'E05000156', CED = 'E99999999', PCON = 'E14000656', LAU2 = 'E05000156', PFA = 'E23000001', PAR = 'E43000198',
         PCT = 'E16000049', SHA = 'E18000007'
 )]
 # fix wrongly attributed code for postcode "TN163UP"
 postcodes[postcode == 'TN163UP', `:=`(
         LAD = 'E09000006', CTY = 'E99999999', RGN = 'E12000007',
-        WARD = 'E05000107', PCON = 'E14000872', LAU2 = 'E05000107', PFA = 'E23000001', PAR = 'E43000196',
+        WARD = 'E05000107', CED = 'E99999999', PCON = 'E14000872', LAU2 = 'E05000107', PFA = 'E23000001', PAR = 'E43000196',
         PCT = 'E16000004', SHA = 'E18000007'
 )]
 
