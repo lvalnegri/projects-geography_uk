@@ -78,7 +78,7 @@ library(maptools)
 # set variables
 boundaries.path <- # DO NOT include the last backslash
     if(substr(Sys.info()['sysname'], 1, 1) == 'W'){
-        'D:/cloud/OneDrive/data/UK/geography/boundaries/london'
+        'D:/cloud/OneDrive/data/UK/geography/boundaries'
     } else {
         '/home/datamaps/data/UK/geography/boundaries'
     }
