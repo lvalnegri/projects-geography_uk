@@ -40,10 +40,11 @@ When an area is not assigned, .
  - **MSOA**. GB. ENG, WLS: 2011 Census Middle Layer Super Output Area (MSOA); SCO: 2011 Census Intermediate Zone (I Z)
  - **LAD**. UK. ENG: Local Authority District (LAD), Unitary Authority (UA), Metropolitan District (MD), London Borough (LB); WLS: Unitary Authority (UA); SCO: Council Area (CA), NIE: District Council Area (DCA) 
  - **CTY**. ENG: County (only for UA/MD/LB, see LAD)
- - **RGN**. ENG: Region (in the ONS file it is coded as *GOR*) 
+ - **RGN**. ENG: Region
  - **CTRY**. UK: Country
  - **MTC**. EW: Major Towns and Cities
  - **WARD**. UK: Electoral Division
+ - **CED**. E: Electoral County
  - **PCON**. UK: Westminster Parliamentary Constituency
  - **TTWA**. UK: Travel to Work Area. There are also six *cross-border* areas (K01000009, ..., K01000014)
  - **WKZ**. UK: 2011 Census Workplace Zone
