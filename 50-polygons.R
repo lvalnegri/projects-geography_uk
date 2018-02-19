@@ -2,30 +2,55 @@
 # 50- WORK WITH BOUNDARIES (POLYGONS)
 ###############################################################
 
-### 1- Blend Output Areas from ENG, WLS, SCO, NIE into one unique file for the UK as a whole --------------------------------------
-# Download the Output Areas (OA) boundaries for each country :
-#   - England and Wales (EW): browse to [COA Boundaries](http://geoportal.statistics.gov.uk/datasets?q=COA%20Boundaries&sort_by=name) 
-#     and download the *Generalised Clipped boundaries* full dataset shapefile (~50MB). The projection is [British National Grid, OSGB_1936](http://spatialreference.org/ref/epsg/osgb-1936-british-national-grid/)
-#   - Scotland (SC): open [2011 Census Geography](http://www.nrscotland.gov.uk/statistics-and-data/geography/our-products/census-datasets/2011-census/2011-boundaries) and download the *2011 Output Area Boundaries, Extent of the Realm* zip file (~28MB). The projection is British National Grid, OSGB_1936
-#   - Northern Ireland (NI): go to [NISRA Geography](https://www.nisra.gov.uk/publications/small-area-boundaries-gis-format)
-#     and download the *ESRI Shapefile format* zip file (~25MB). The projection is [Irish Grid, GCS_TM65](http://spatialreference.org/ref/epsg/29902/)
-# 
-# Extract from each archives only the files with the extensions: **shp** (geometry), **shx** (index), **prj** (projection), and **dbf** (data). Rename the three blocks as: **EW.*** (England and Wales), **SC.*** (Scotland), **NI.*** (Northern Ireland).
+### 1- Blend Output Areas from England and Wales (EW), Scotland (SC), Northern Ireland (NI) into one unique file for the UK as a whole --------------------------------------
 
-# load the packages
-library('rgdal')     # easily read/write the shapefiles, and automatically apply the projection contained in the prj file
-library('maptools')  # merge multiple Spatial objects
-# set the directory of the boundaries shapefiles
+## Download the Output Areas (OA) boundaries for each country :
+#   - EW: browse to [COA Boundaries](http://geoportal.statistics.gov.uk/datasets?q=COA%20Boundaries&sort_by=name) 
+#     and download the *Generalised Clipped boundaries* full dataset shapefile (~50MB). 
+#     The projection is [British National Grid, OSGB_1936](http://spatialreference.org/ref/epsg/osgb-1936-british-national-grid/)
+ew_grid <- '+init=epsg:27700'
+#     The bounding box is [, , , ]. The centroid is [, ]
+ew_bbox <- c(, , , )
+ew_centroid <- c(x_lon = , y_lat = )
+#   - SC: open [2011 Census Geography](http://www.nrscotland.gov.uk/statistics-and-data/geography/our-products/census-datasets/2011-census/2011-boundaries) 
+#     and download the *2011 Output Area Boundaries, Extent of the Realm* zip file (~28MB). 
+#     The projection is British National Grid, OSGB_1936
+sc_grid = '+init=epsg:27700'
+#     The bounding box is [, , , ]. The centroid is [, ]
+sc_bbox <- c(, , , )
+sc_centroid <- c(x_lon = , y_lat = )
+#   - NI: go to [NISRA Geography](https://www.nisra.gov.uk/publications/small-area-boundaries-gis-format)
+#     and download the *ESRI Shapefile format* zip file (~25MB). 
+#     The projection is [Irish Grid, GCS_TM65](http://spatialreference.org/ref/epsg/29902/)
+ni_grid = '+init=epsg:29902' 
+#     The bounding box is [, , , ]. The centroid is [, ]
+ni_bbox <- c(, , , )
+ni_centroid <- c(x_lon = , y_lat = )
+
+## Extract from each archives only the files with the following extensions: 
+#   - **shp** (geometry)
+#   - **shx** (index)
+#   - **prj** (projection)
+#   - **dbf** (data). 
+# Rename the three blocks as: **EW.xxx** (England and Wales), **SC.xxx** (Scotland), **NI.xxx** (Northern Ireland).
+
+# Load the packages. On Linux (Ubuntu) install the following librearies: libproj-dev, libgdal-dev, libv8-dev 
+pkg <- c('maptools', 'rgdal', 'rmapshaper')
+invisible(lapply(pkg, require, char = TRUE))
+
+# set the directory of the boundaries shapefiles. Do NOT end the path with "/" or the boundaries will fail to load! 
 boundaries.path <- 
     if(substr(Sys.info()['sysname'], 1, 1) == 'W'){
-        'D:/cloud/OneDrive/data/UK/geography/boundaries'
+        'D:/cloud/OneDrive/data/UK/geography/boundaries'  # Windows
     } else {
-        '/home/datamaps/data/UK/geography/boundaries'
+        '/home/datamaps/data/UK/geography/boundaries'     # Linux
     }
-# set the projection string for WGS84
+
+# set the correct projection string for WGS84
 proj.wgs <- '+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0'
 
-# English-Welsh
+## process English-Welsh
+# read the shapefile
 shp.ew <- readOGR(boundaries.path, layer = 'EW')
 # check the projection, and read the field to keep as future id; in this case: "oa11cd"
 summary(shp.ew)
@@ -37,7 +62,7 @@ colnames(shp.ew@data) <- c('id')
 # reassign the polygon IDs
 shp.ew <- spChFIDs(shp.ew, as.character(shp.ew$id))
 
-# SCotland
+# process SCotland (follows same steps as EW, see notes above)
 shp.sc <- readOGR(boundaries.path, layer = 'SC')
 summary(shp.sc)
 shp.sc <- spTransform(shp.sc, CRS(proj.wgs))
@@ -45,7 +70,7 @@ shp.sc <- shp.sc[, 'code']
 colnames(shp.sc@data) <- c('id')
 shp.sc <- spChFIDs(shp.sc, as.character(shp.sc$id))
 
-# Northern Ireland
+# process Northern Ireland (follows same steps as EW, see notes above) 
 shp.ni <- readOGR(boundaries.path, layer = 'NI')
 summary(shp.ni)
 shp.ni <- spTransform(shp.ni, CRS(proj.wgs))
@@ -55,33 +80,41 @@ shp.ni <- spChFIDs(shp.ni, as.character(shp.ni$id))
 
 # Create the UK boundaries as a merge of all previous boundaries
 shp.uk <- spRbind(spRbind(shp.ew, shp.sc), shp.ni)
+# reduce the complexity of the boundaries (it's a statistical map, not an OS Explorer Map!)
+shp.uk <- ms_simplify(shp.uk, keep = 0.05)
 
 # count by country:
 table(substr(shp.uk@data$id, 1, 1))
-# and it should return the following result (for 2011 census):  E 171372, N 4537, S 46351, W 10036 
+# and it should return the following result (for 2011 census):  
+# E 171,372, W 10,036 (EW: 181,408), S 46,351 (GB: 227,759), N 4,537 (UK: 232,296) 
+uk_centroid <- c(x_lon = -2.421976, y_lat = 53.825564)
+uk_bbox <- c(lng1 = 1.8, lat1 = 49.9, lng2 = -8.3, lat2 = 59.0 )
 
-# save Polygons as shapefile (in case, remove old shapefiles)
+# save Polygons as unique shapefile (in case, remove old shapefiles)
 if(file.exists(paste0(boundaries.path, '/OA.shp') ) ) 
     file.remove(paste0(boundaries.path, '/OA.', c('shp', 'prj', 'dbf', 'shx')))
 writeOGR(shp.area, dsn = boundaries.path, layer = 'OA', driver = 'ESRI Shapefile')
 
 
-### 2- Merge polygons to create a boundary shapefile for a parent level ---------------------------------------------------------
-# a functional lookup table is supposed to exists in the geography database
+### 2- Merge polygons from OA shapefile to create a boundary shapefile for a parent level ---------------------------------------------------------
+# a functional "lookups" table is supposed to exists in the geography database
 
 # load packages
-library(RMySQL)
-library(rgdal)
-library(rmapshaper)
-library(maptools)
+pkg <- c('maptools', 'rgdal', 'rmapshaper', 'RMySQL')
+invisible(lapply(pkg, require, char = TRUE))
 
-# set variables
-boundaries.path <- # DO NOT include the last backslash
+# set the directory of the boundaries shapefiles. Do NOT end the path with "/" or the boundaries will fail to load! 
+boundaries.path <- 
     if(substr(Sys.info()['sysname'], 1, 1) == 'W'){
+<<<<<<< HEAD
         'D:/cloud/OneDrive/data/UK/geography/boundaries'
+=======
+        'D:/cloud/OneDrive/data/UK/geography/boundaries'  # Windows
+>>>>>>> a65efe0880e851b05489dd454a8387b70f89d5ca
     } else {
-        '/home/datamaps/data/UK/geography/boundaries'
+        '/home/datamaps/data/UK/geography/boundaries'     # Linux
     }
+
 # define helper functions
 merge.subpoly <- function(shp, subarea){
     # select all child polygons contained in specified parent polygon
@@ -137,6 +170,7 @@ build.parent.boundaries <- function(parent, child, simplify = FALSE, keep.pct = 
     writeOGR(shp.area, dsn = boundaries.path, layer = parent, driver = 'ESRI Shapefile')
 }
 
+# create boundaries for the "" hierarchy
 build.parent.boundaries('LSOA', 'OA', TRUE)
 build.parent.boundaries('MSOA', 'LSOA')
 build.parent.boundaries('LAD', 'MSOA')
@@ -144,9 +178,16 @@ build.parent.boundaries('CTY', 'LAD')
 build.parent.boundaries('RGN', 'CTY')
 build.parent.boundaries('CTRY', 'RGN')
 
+# create boundaries for the "" hierarchy
+
+# create boundaries for the "" hierarchy
+
+# create boundaries for the "postcodes" hierarchy
 build.parent.boundaries('PCS', 'OA', TRUE)
 build.parent.boundaries('PCD', 'PCS')
 build.parent.boundaries('PCA', 'PCD')
+
+# create boundaries for the "Health" hierarchy
 
 
 ### 4- Query boundaries for a specified parent area
@@ -249,7 +290,7 @@ y <- rbind(
 
 
 
-### 5- Associating points with polygons (given a POI coordinates, find the corresponding output area) ---------------------------
+### 5- Associating points with polygons (given a POI coordinates, find the corresponding polygon (or OA id, you can get whatever else using lookups) ---------------------------
 
 # read output areas (OA) boundaries
 bnd <- readOGR(boundaries.path, 'OAsmp')
@@ -276,7 +317,7 @@ lkp <- shp.area@data
 lkp$type <- area
 colnames(lkp) <- c('boundary_id', 'id', 'type')
 # connect to database
-db_conn <- dbConnect(MySQL(), user = 'root', password = 'root', dbname = 'geography')
+db_conn <- dbConnect(MySQL(), group = 'local', dbname = 'geography')
 # save lookup to database
 dbSendQuery(db_conn, paste0("DELETE FROM boundaries_ids WHERE type = '", area, "'") )
 dbWriteTable(db_conn, 'boundaries_ids', lkp, row.names = FALSE, append = TRUE)
@@ -289,7 +330,7 @@ setnames(df.area, c('long', 'lat'), c('X_lon', 'Y_lat'))
 # add "type" column
 df.area$type <- area
 # connect to database
-db_conn <- dbConnect(MySQL(), user = 'root', password = 'root', dbname = 'geography')
+db_conn <- dbConnect(MySQL(), group = 'local', dbname = 'geography')
 # save dataframe to database
 dbSendQuery(db_conn, paste0("DELETE FROM boundaries WHERE type = '", area, "'") )
 dbWriteTable(db_conn, 'boundaries', df.area, row.names = FALSE, append = TRUE)

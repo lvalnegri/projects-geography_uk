@@ -7,7 +7,7 @@ pkg <- c('data.table', 'RMySQL')
 invisible(lapply(pkg, require, character.only = TRUE))
 data.path <- 
     if (substr(Sys.info()['sysname'], 1, 1) == 'W') {
-        'D:/cloud/OneDrive/data/UK/geography/postcodes'
+        'D:/cloud/OneDrive/data/UK/geography/postcodes/'
     } else {
         '/home/datamaps/data/UK/geography/postcodes/'
     }
@@ -81,21 +81,20 @@ write.csv(
         postcodes[, .(PCD = uniqueN(PCD), PCS = uniqueN(PCS), live = sum(is_active), terminated = sum(!is_active), total = .N), PCA],
         postcodes[, .(PCA = 'TOTAL UK', PCD = uniqueN(PCD), PCS = uniqueN(PCS), live = sum(is_active), terminated = sum(!is_active), total = .N)]        
     )), 
-    'csv/pca_totals.csv'
-    , row.names = FALSE
+    'csv/pca_totals.csv', row.names = FALSE
 )
 
 ### 6- CLEAN + RECODE -----------------------------------------------------------------------------------------------------------
 
 # check OA for postcodes "CR3 0EA" and "TN163UP"
-# fix wrongly attributed codes for postcode "CR3 0EA"
+# fix "wrongly" attributed codes for postcode "CR3 0EA"
 postcodes[OA %in% c('E00005337', 'E00003159')]
 postcodes[postcode == 'CR3 0EA', `:=`(
         LAD = 'E09000008', CTY = 'E99999999', RGN = 'E12000007',
         WARD = 'E05000156', CED = 'E99999999', PCON = 'E14000656', LAU2 = 'E05000156', PFA = 'E23000001', PAR = 'E43000198',
         PCT = 'E16000049', SHA = 'E18000007'
 )]
-# fix wrongly attributed code for postcode "TN163UP"
+# fix "wrongly" attributed code for postcode "TN163UP"
 postcodes[postcode == 'TN163UP', `:=`(
         LAD = 'E09000006', CTY = 'E99999999', RGN = 'E12000007',
         WARD = 'E05000107', CED = 'E99999999', PCON = 'E14000872', LAU2 = 'E05000107', PFA = 'E23000001', PAR = 'E43000196',
