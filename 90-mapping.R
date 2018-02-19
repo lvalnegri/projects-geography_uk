@@ -51,8 +51,6 @@ plot_boundaries <- function(type, parent.type = NA, parent.code = NA){
             )
         )
 }
-<<<<<<< HEAD:90-Mapping.R
-
 
 plot_points <- function(loca = 'OA', parent_id = NULL, parent_code = NULL, var_colour = NULL, var_size = NULL, var_facet = NULL){
     pkg <- c('ggmap', 'ggplot2')
@@ -81,6 +79,3 @@ plot_points <- function(loca = 'OA', parent_id = NULL, parent_code = NULL, var_c
 }
 
 plot_points(parent_id = 'CTY', parent_code = 'E13000001', var_facet = 'LAD')
-
-=======
->>>>>>> a65efe0880e851b05489dd454a8387b70f89d5ca:90-mapping.R
