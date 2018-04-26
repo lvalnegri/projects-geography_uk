@@ -7,13 +7,13 @@ pkg <- c('data.table', 'RMySQL')
 invisible(lapply(pkg, require, character.only = TRUE))
 data.path <- 
     if (substr(Sys.info()['sysname'], 1, 1) == 'W') {
-        'D:/cloud/OneDrive/data/UK/geography/postcodes/'
+        'E:/OneDrive/data/UK/geography/postcodes/'
     } else {
         '/home/datamaps/data/UK/geography/postcodes/'
     }
 
 ### 2- ONSPD --------------------------------------------------------------------------------------------------------------------
-
+# download latest @ http://geoportal.statistics.gov.uk/datasets?q=ONS+Postcode+Directory+(ONSPD)+zip&sort_by=updated_at
 # load data
 onspd <- fread(paste0(data.path, 'ONSPD.csv'), 
                     select = c(
@@ -43,7 +43,7 @@ onspd <- onspd[osgrdind < 9, .(
 
 
 ### 3- NHSPD. There is no header in this file, so we have to use columns position. Read User guide for more info ----------------
-
+# download latest @ http://geoportal.statistics.gov.uk/datasets?q=NHS+Postcode+Directory+(NHSPD)+full+zip&sort_by=updated_at
 # load data (only the fields not already present in ONSPD: NHSR, LAT). Also CTRY to check totals
 nhspd <- fread(paste0(data.path, 'NHSPD.csv'),
                     select = c(1, 12, 13, 17, 24),
