@@ -4,9 +4,11 @@
 ### Postcodes
 
 There are two files:
+
  - [ONSPD](http://geoportal.statistics.gov.uk/datasets?q=ONS+Postcode+Directory+(ONSPD)+zip&sort_by=updated_at) 
  - [NHSPD](http://geoportal.statistics.gov.uk/datasets?q=NHS+Postcode+Directory+(NHSPD)+full+zip&sort_by=updated_at)
-with mostly overlapping information.
+ 
+with mostly overlapping information. The main difference being the way 
 
 Both contain ALL:
  - current (*live*) postcodes within the UK, as received monthly from the various postal admin within the UK
