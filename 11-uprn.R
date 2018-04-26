@@ -11,9 +11,9 @@ pkg <- lapply(pkg, require, character.only = TRUE)
 ### Set variables ---------------------------------------------------------------------------------------------------------------
 data_path <- 
     if (substr(Sys.info()['sysname'], 1, 1) == 'W') {
-        'D:/cloud/OneDrive/data/UK/geography/uprn'
+        'E:/OneDrive/data/UK/geography/uprn/'
     } else {
-        '/home/datamaps/data/UK/geography/uprn'
+        '/home/datamaps/data/UK/geography/uprn/'
     }
 dt <- data.table(OA = numeric(0), N = numeric(0))
 
@@ -21,7 +21,7 @@ dt <- data.table(OA = numeric(0), N = numeric(0))
 fn <- list.files(data_path)
 current_month <- substr(fn, 7, 9)
 current_month <- which(current_month == c('JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'))
-current_month <- paste0(substr(fn, 13, 14), current_month)
+current_month <- paste0(substr(fn, 13, 14), ifelse(current_month < 10, '0', ''), current_month)
 
 ### unzip file ------------------------------------------------------------------------------------------------------------------
 unzip(file.path(data_path, fn), exdir = data_path)
@@ -67,9 +67,18 @@ strSQL <- "
     FROM uprns u 
     	JOIN lookups lk ON lk.OA = u.oa
     	JOIN locations lc ON lc.location_id = lk.RGN AND lc.type_id = 'RGN'
+    WHERE CTRY = 'E'
     GROUP BY RGN
+    	UNION
+    SELECT lk.CTRY, lc.name, SUM(tot_uprn) AS c
+    FROM uprns u 
+    	JOIN lookups lk ON lk.OA = u.oa
+    	JOIN locations lc ON lc.location_id = lk.CTRY AND lc.type_id = 'CTRY'
+    WHERE CTRY <> 'E'
+    GROUP BY CTRY
 "
 t <- dbGetQuery(dbc, strSQL)
+write.csv(t, paste0('csv/uprns_', current_month, '.csv'), row.names = FALSE)
 
 # remove files from disk
 unlink(file.path(data_path, '*'), recursive = TRUE)
