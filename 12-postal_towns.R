@@ -1,5 +1,5 @@
 ###############################################################
-# 12- Post Towns
+# 12- Post Towns. OLD FILE, KEEP IT FOR VILLAGES ?
 ###############################################################
 library(data.table)
 library(rvest)

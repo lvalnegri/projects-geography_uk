@@ -1,48 +1,42 @@
-##############################################################################################
-# Boundaries grouping and conversion to rds format for quicker loading in Shiny apps
-##############################################################################################
+#############################################################################################################
+# UK GEOGRAPHY * 56 - Boundaries grouping and conversion to rds format for quicker loading in Shiny apps
+#############################################################################################################
 
-# define functions
-get.bnd.names <- function(country){
-    dbc <- dbConnect(MySQL(), group = 'dataOps', dbname = 'common')
-    strSQL <- paste0("SELECT path FROM paths WHERE name = 'boundaries' AND system = '", ifelse(grepl('linux', R.version$os), 'linux', 'win'), "'")
-    data.path <- dbGetQuery(dbc, strSQL)
-    data.path <- paste0(data.path, 'fst', '/', app.name, '/')
-    shp_names <- dbGetQuery(dbc, paste0("SELECT dataset FROM fst_shiny WHERE country = '", country, "'"))
-    dbDisconnect(dbc)
-    return( list(data.path, shp_names) )
-}
-shp2rds <- function(app.name){
-    lapply(c('rgdal', 'RMySQL', 'sp'), require, character.only = TRUE)
-    y <- get.fst.names(app.name)
-    dbc <- dbConnect(MySQL(), group = 'dataOps', dbname = app.name)
-    for(dtn in unlist(y[[2]])){
-        print(paste0('Reading ', dtn, '...'))
-        dt <- dbReadTable(dbc, dtn)
-        print(paste0('Writing ', dtn, '...'))
-        write.fst(dt, paste0(y[[1]], dtn, '.fst'), 100 )
-    }
-    dbDisconnect(dbc)
-}
+# load packages
+pkg <- c('fst', 'rgdal', 'sp')
+invisible( lapply(pkg, require, character.only = TRUE) )
 
-# define locations whose boundaries have to be grouped and stored
-loca.map <- c('CCG', 'LAT', 'NHSR', 'CCR', 'CTRY')
+# set the directories (do NOT end any path with "/")
+bnd_path  <- file.path(Sys.getenv('PUB_PATH'), 'boundaries/shp/UK')       # path for the input shapefiles 
+rds_path  <- file.path(Sys.getenv('PUB_PATH'), 'boundaries/rds/UK')       # path for the output R binary files
+data_path <- file.path(Sys.getenv('PUB_PATH'), 'dataframes/geography_uk') # path for the lookups file
 
-# load additional datasets
-db_conn <- dbConnect(MySQL(), group = 'shiny', dbname = 'common')
-locations <- suppressWarnings(data.table(dbReadTable(db_conn, 'locations') ) )
-dbDisconnect(db_conn)
+# set areas names
+# areas <- list(
+#     'census' = c('LSOA', 'MSOA', 'LAD', 'CTY', 'RGN', 'CTRY'), 
+#     'postcodes' = c('PCS', 'PCD', 'PCT', 'PCA'),
+#     'statistical ' = c('MTC', 'BUA', 'BUAS'), 
+#     'admin ' = c('TTWA', 'WARD', 'CED', 'PCON', 'PAR')
+# )
+areas <- c('LSOA', 'MSOA', 'LAD', 'CTY', 'RGN', 'CTRY', 'PCS', 'PCD', 'PCT', 'PCA', 'MTC', 'BUA', 'BUAS', 'TTWA', 'WARD', 'CED', 'PCON', 'PAR')
+
+# load locations names
+locations <- read.fst(file.path(data_path, 'locations'))
 
 # load boundaries and build unique list
-boundaries <- lapply(loca.map, function(x) readOGR(shp.path, x))
-names(boundaries) <- loca.map
-for(m in loca.map){
-    boundaries[[m]] <- merge(boundaries[[m]], areas[, .(ons_id, nhs_id, name)], by.x = 'id', by.y = 'ons_id')
+boundaries <- lapply(areas, function(x) readOGR(bnd_path, x))
+names(boundaries) <- areas
+
+# save each area as separate file
+for(area in areas){
+    message('Saving ', area, ' boundaries...')
+    saveRDS(boundaries[[area]], file.path(rds_path, area))
 }
 
-# save boundaries as RDS object
-saveRDS(boundaries, paste0(shp.path, '/boundaries.rds'))
+# save all boundaries as one object
+message('Saving all areas boundaries as unique file...')
+saveRDS(boundaries, file.path(rds_path, 'boundaries'))
 
-### How to read back and use the rds file in the app 
-# country <- 'ldn'
-# y <- get.bnd.names(app.name)
+# clean and exit
+rm(list = ls())
+gc()
