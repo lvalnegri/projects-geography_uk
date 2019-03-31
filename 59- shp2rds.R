@@ -7,9 +7,9 @@ pkg <- c('fst', 'rgdal', 'sp')
 invisible( lapply(pkg, require, character.only = TRUE) )
 
 # set the directories (do NOT end any path with "/")
-bnd_path  <- file.path(Sys.getenv('PUB_PATH'), 'boundaries/shp/UK')       # path for the input shapefiles 
-rds_path  <- file.path(Sys.getenv('PUB_PATH'), 'boundaries/rds/UK')       # path for the output R binary files
-data_path <- file.path(Sys.getenv('PUB_PATH'), 'dataframes/geography_uk') # path for the lookups file
+bnd_path  <- file.path(Sys.getenv('PUB_PATH'), 'boundaries', 'uk', 'shp', 's20')       # path for the input shapefiles 
+rds_path  <- file.path(Sys.getenv('PUB_PATH'), 'boundaries', 'uk', 'rds', 's20')       # path for the output R binary files
+data_path <- file.path(Sys.getenv('PUB_PATH'), 'datasets', 'geography', 'uk') # path for the lookups file
 
 # set areas names
 # areas <- list(

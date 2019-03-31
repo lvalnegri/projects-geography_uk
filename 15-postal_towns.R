@@ -1,13 +1,13 @@
-####################################
-# UK GEOGRAPHY * 15 - Postal Towns #
-####################################
+#######################################
+# UK GEOGRAPHY * 15 - Postal Towns
+#######################################
 
 # load packages -----------------------------------------------------------------------------------------------------------------
 pkg <- c('data.table', 'htmltab', 'RMySQL', 'rvest')
 invisible(lapply(pkg, require, character.only = TRUE))
 
 # set constants -----------------------------------------------------------------------------------------------------------------
-data_path <- file.path(Sys.getenv('PUB_PATH'), 'ext-data/geography_uk')
+data_path <- file.path(Sys.getenv('PUB_PATH'), 'ext_data', 'geography', 'uk')
 from_scratch <- TRUE
 
 # load data ---------------------------------------------------------------------------------------------------------------------
@@ -25,7 +25,7 @@ if(from_scratch){
         as.data.table() %>% 
         setnames(c('PCA', 'name'))
     pca[, `:=`(PCA = trimws(gsub('postcode area', '', PCA)), name = trimws(gsub('postcode area', '', name)))]
-    write.csv(pca, file.path(data_path, 'locations', 'PCA.csv'), row.names = FALSE)
+    fwrite(pca, file.path(data_path, 'locations', 'PCA.csv'), row.names = FALSE)
     
     # download postal towns PCT -----------------------------------------------------------------------------------------------------
     url_pref <- 'https://www.postcodes-uk.com/'
@@ -33,17 +33,17 @@ if(from_scratch){
     for(idx in 1:nrow(pca)){
         message('Processing postcode area ', idx, ' out of ', nrow(pca))
         pcdt <- rbindlist(list(
-                    pcdt,
-                    read_html(paste0(url_pref, pca[idx, PCA], '-postcode-area')) %>%
-                        html_nodes('.postcode_district_list a') %>% 
-                        html_text() %>% 
-                        matrix(byrow = TRUE, ncol = 2) %>% 
-                        as.data.table()
+            pcdt,
+            read_html(paste0(url_pref, pca[idx, PCA], '-postcode-area')) %>%
+                html_nodes('.postcode_district_list a') %>% 
+                html_text() %>% 
+                matrix(byrow = TRUE, ncol = 2) %>% 
+                as.data.table()
         ))
         Sys.sleep(1)
     }
     pcdt[, `:=`(PCD = trimws(gsub('postcode', '', PCD)), PCT = trimws(gsub('postcode', '', PCT)))]
-
+    
     # save dataset to csv file in lookups ------------------------------------------------------------------------------------
     fwrite(pcdt, file.path(data_path, 'lookups', 'PCDT.csv'))
     
@@ -70,50 +70,74 @@ pctw <- pctw[ PCD %in% pcdt[is.na(PCT), PCD]]
 # update first table with missing postal town names
 pcdt[is.na(PCT), PCT := pctw[.SD[['PCD']], .(PCT), on = 'PCD'] ]
 
-# manual table for last update for some districts in areas: KA, RH, S, ST -------------------------------------------------------
+# manual table for last update for some districts -------------------------------------------------------
+# ==> MAY 2018
+# pctw <- data.table(
+#     'PCD' = c(
+#         paste0('KA', 7:10), paste0('KA', 13:15), 'KA19', paste0('KA', 21:30), 
+#         'RH10', 'RH12', 'RH13', paste0('RH', 15:19), 'RH77', 'S95', 'S99', 'ST55'
+#     ),
+#     'PCT' = c(
+#         'Ayr', 'Ayr', 'Prestwick', 'Troon', 'Kilwinning', 'Beith', 'Beith', 'Maybole', 'Saltcoats', 'Ardrossan', 
+#         'West Kilbride', 'Dalry', 'Kilbirnie', 'Girvan', 'Isle Of Arran', 'Isle Of Cumbrae', 'Largs', 'Largs', 'Crawley', 
+#         'Horsham', 'Horsham', 'Burgess Hill', 'Haywards Heath', 'Haywards Heath', 
+#         'Forest Row', 'East Grinstead', 'Redhill', 'Sheffield', 'Sheffield', 'Newcastle'
+#     )
+# )
+# ==> FEB 2019
 pctw <- data.table(
-        'PCD' = c(
-            paste0('KA', 7:10), paste0('KA', 13:15), 'KA19', paste0('KA', 21:30), 
-            'RH10', 'RH12', 'RH13', paste0('RH', 15:19), 'RH77', 'S95', 'S99', 'ST55'
-        ),
-        'PCT' = c(
-            'Ayr', 'Ayr', 'Prestwick', 'Troon', 'Kilwinning', 'Beith', 'Beith', 'Maybole', 'Saltcoats', 'Ardrossan', 
-            'West Kilbride', 'Dalry', 'Kilbirnie', 'Girvan', 'Isle Of Arran', 'Isle Of Cumbrae', 'Largs', 'Largs', 'Crawley', 
-            'Horsham', 'Horsham', 'Burgess Hill', 'Haywards Heath', 'Haywards Heath', 
-            'Forest Row', 'East Grinstead', 'Redhill', 'Sheffield', 'Sheffield', 'Newcastle'
-        )
+    'PCD' = c(
+        'BN95', 'CA99', 'CR44', 'IV99',
+        paste0('KA', 7:10), paste0('KA', 13:15), paste0('KA', 19:30), 
+        'LS88', 'ME99', 'PL95', 'RH77', 'S99', 'SL60', 'SO25', 'SO97', 'ST55', 'SY99', 'WV98', 'WV99'
+    ),
+    'PCT' = c(
+        'Lancing', 'Carlisle', 'Croydon', 'Inverness', 
+        'Ayr', 'Ayr', 'Prestwick', 'Troon', 'Kilwinning', 'Beith', 'Beith', 'Maybole', 'Stevenston', 'Saltcoats', 'Ardrossan', 
+        'West Kilbride', 'Dalry', 'Kilbirnie', 'Girvan', 'Isle Of Arran', 'Isle Of Cumbrae', 'Largs', 'Largs', 
+        'Leeds', 'Rochester', 'Plymouth', 
+        'Redhill', 'Sheffield', 
+        'Slough', 'Winchester', 'Southampton', 
+        'Newcastle',
+        'Shrewsbury', 'Wolverhampton', 'Wolverhampton' 
+    )
 )
+
 pcdt[is.na(PCT), PCT := pctw[.SD[['PCD']], .(PCT), on = 'PCD'] ]
 
 # create postal town primary key and save table  --------------------------------------------------------------------------------
 pct <- unique(pcdt[, .(name = PCT)])[order(name)][, PCT := paste0('PCT', formatC(1:.N, width = 4, format = 'd', flag = '0'))]
 setcolorder(pct, c('PCT', 'name'))
-write.csv(pct, file.path(data_path, 'locations', 'PCT.csv'), row.names = FALSE)
+fwrite(pct, file.path(data_path, 'locations', 'PCT.csv'), row.names = FALSE)
 
 # substitute post towns names with new ids in pcd -------------------------------------------------------------------------------
 pcdt <- pct[pcdt, on = c(name = 'PCT')][, name := NULL]
 setcolorder(pcdt, c('PCD', 'ordering', 'PCT'))
-write.csv(pcdt, file.path(data_path, 'lookups', 'PCD_to_PCT.csv'), row.names = FALSE)
+fwrite(pcdt, file.path(data_path, 'lookups', 'PCD_to_PCT.csv'), row.names = FALSE)
 if(nrow(pcdt[is.na(PCT)])) 
     warning('CHECK pcd.csv! Not all Post Towns have been found. There still are ', nrow(pcd[is.na(PCT)]), ' missing' )
 
 # download villages -------------------------------------------------------------------------------------------------------------
+
 villages <- data.table('PCD' = character(0), village = character(0))
 url_pref <- 'https://www.postcodes-uk.com/'
-for(idx in 2457:nrow(pcd)){
+for(idx in 1:nrow(pcd)){
     message('Processing district ', idx, ' out of ', nrow(pcd))
-    pcd_vlg <- read_html(paste0(url_pref, pcd[idx, PCD], '-postcode-district')) %>%
-                    html_nodes('.places-list a') %>% 
-                    html_text()
+    pcd_vlg <- tryCatch(
+        read_html(paste0(url_pref, pcd[idx, PCD], '-postcode-district')) %>%
+            html_nodes('.places-list a') %>% 
+            html_text()
+        , error = function(err) character(0)
+    )
     if(length(pcd_vlg) > 0)
         villages <- rbindlist(list(villages, data.table( pcd[idx, PCD], pcd_vlg ) ) )
     Sys.sleep(runif(1, 0.5, 4))
 }
-villages <- rbindlist( list(villages, ptw[!(PCD %in% unique(villages$PCD))]) )
-write.csv(villages[order(PCD, village)], file.path(data_path, 'locations', 'villages.csv'), row.names = FALSE)
-
+y <- pcdt[!(PCD %in% unique(villages$PCD)), .(PCD, PCT)]
+y <- pct[y, on = 'PCT'][!is.na(name), .(PCD, village = name)]
+villages <- rbindlist( list(villages, y) )
+fwrite(villages[order(PCD, village)], file.path(data_path, 'locations', 'villages.csv'), row.names = FALSE)
 
 # clean and exit ----------------------------------------------------------------------------------------------------------------
 rm(list = ls())
 gc()
-
