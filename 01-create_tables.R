@@ -29,7 +29,7 @@ strSQL <- "
     CREATE TABLE postcodes (
 	
         postcode CHAR(7) NOT NULL COMMENT 'postcode in 7-chars format: 4-chars outcode + 3-chars incode',
-        is_active TINYINT(1) UNSIGNED NOT NULL COMMENT '0- terminated, 1- live',
+        is_active TINYINT(1) UNSIGNED NOT NULL,
         usertype TINYINT(1) UNSIGNED NOT NULL 
             COMMENT '0- small user, 1- large user (large means addresses receiving more than 25 items per day)',
         x_lon DECIMAL(7,6) NOT NULL COMMENT 'longitude of the geometric centroid of the postcode',
@@ -71,7 +71,8 @@ strSQL <- "
         PRIMARY KEY (postcode),
         INDEX (OA),
         INDEX (is_active),
-        INDEX (usertype)
+        INDEX (usertype),
+        INDEX (mosaic_type)
 
     ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ROW_FORMAT=FIXED
 "
@@ -180,8 +181,7 @@ strSQL <- "
         perimeter MEDIUMINT(8) UNSIGNED NULL DEFAULT NULL,
         area INT(10) UNSIGNED NULL DEFAULT NULL,
     	tot_uprn SMALLINT(5) UNSIGNED NULL DEFAULT NULL COMMENT 'Total unique spatial addresses',
-    	wzc_sgroup CHAR(2) NULL DEFAULT NULL COMMENT 'Workplace Zones Classification: Supergroup Code',
-    	wzc_group CHAR(1) NULL DEFAULT NULL COMMENT 'Workplace Zones Classification: Group Code',
+    	wzc CHAR(2) NULL DEFAULT NULL COMMENT 'Workplace Zones Classification: Group Code; see wzc.group_code',
 
         MSOA CHAR(9) NULL DEFAULT NULL COMMENT 'Middle Layer Super Output Area (E02, W02, S02; England, Wales and Scotland Only)',
         LAD CHAR(9) NOT NULL COLLATE 'utf8_unicode_ci' COMMENT 'Local Authority District (UA-E06/W06, LAD-E07, MD-E08, LB-E09, CA-S12, DCA-N09)',
@@ -190,8 +190,7 @@ strSQL <- "
         CTRY CHAR(3) NOT NULL COLLATE 'utf8_unicode_ci' COMMENT 'Country (E92 = ENG, W92 = WLS, S92 = SCO, N92 = NIE)',
 
         PRIMARY KEY (WPZ),
-    	INDEX wzc_sgroup (wzc_sgroup),
-    	INDEX wzc_group (wzc_group),
+    	INDEX wzc (wzc),
         INDEX MSOA (MSOA),
         INDEX LAD (LAD),
         INDEX CTY (CTY),
@@ -314,24 +313,24 @@ write.fst(y, file.path(out_path, 'location_types'))
 strSQL <- "
     CREATE TABLE oac (
     	subgroup_id SMALLINT(3) UNSIGNED NOT NULL,
-    	subgroup CHAR(3) NOT NULL,
+    	subgroup_code CHAR(3) NOT NULL,
     	subgroup_desc CHAR(50) NOT NULL,
     	group_id TINYINT(2) UNSIGNED NOT NULL,
-    	`group` CHAR(2) NOT NULL,
+    	group_code CHAR(2) NOT NULL,
     	group_desc CHAR(40) NOT NULL,
     	supergroup_id TINYINT(1) UNSIGNED NOT NULL,
     	supergroup_desc CHAR(30) NOT NULL,
     	PRIMARY KEY (subgroup_id),
-    	UNIQUE INDEX subgroup (subgroup),
+    	UNIQUE INDEX subgroup_code (subgroup_code),
     	INDEX group_id (group_id),
-    	INDEX `group` (`group`),
+    	INDEX group_code (group_code),
     	INDEX supergroup_id (supergroup_id)
     ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ROW_FORMAT=FIXED
 "
 dbSendQuery(dbc, strSQL)
 y <- fread(file.path(in_path, 'oac.csv'))
 dbWriteTable(dbc, 'oac', y, row.names = FALSE, append = TRUE)
-cols <- c('subgroup', 'group')
+cols <- c('subgroup_code', 'group_code')
 y[, (cols) := lapply(.SD, as.factor), .SDcols = cols]
 write.fst(y, file.path(out_path, 'oac'))
 

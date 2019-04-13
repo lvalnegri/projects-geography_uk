@@ -71,38 +71,13 @@ pctw <- pctw[ PCD %in% pcdt[is.na(PCT), PCD]]
 pcdt[is.na(PCT), PCT := pctw[.SD[['PCD']], .(PCT), on = 'PCD'] ]
 
 # manual table for last update for some districts -------------------------------------------------------
-# ==> MAY 2018
-# pctw <- data.table(
-#     'PCD' = c(
-#         paste0('KA', 7:10), paste0('KA', 13:15), 'KA19', paste0('KA', 21:30), 
-#         'RH10', 'RH12', 'RH13', paste0('RH', 15:19), 'RH77', 'S95', 'S99', 'ST55'
-#     ),
-#     'PCT' = c(
-#         'Ayr', 'Ayr', 'Prestwick', 'Troon', 'Kilwinning', 'Beith', 'Beith', 'Maybole', 'Saltcoats', 'Ardrossan', 
-#         'West Kilbride', 'Dalry', 'Kilbirnie', 'Girvan', 'Isle Of Arran', 'Isle Of Cumbrae', 'Largs', 'Largs', 'Crawley', 
-#         'Horsham', 'Horsham', 'Burgess Hill', 'Haywards Heath', 'Haywards Heath', 
-#         'Forest Row', 'East Grinstead', 'Redhill', 'Sheffield', 'Sheffield', 'Newcastle'
-#     )
-# )
-# ==> FEB 2019
 pctw <- data.table(
-    'PCD' = c(
-        'BN95', 'CA99', 'CR44', 'IV99',
-        paste0('KA', 7:10), paste0('KA', 13:15), paste0('KA', 19:30), 
-        'LS88', 'ME99', 'PL95', 'RH77', 'S99', 'SL60', 'SO25', 'SO97', 'ST55', 'SY99', 'WV98', 'WV99'
-    ),
+    'PCD' = c(paste0('KA', 7:10), paste0('KA', 13:15), paste0('KA', 19:30)),
     'PCT' = c(
-        'Lancing', 'Carlisle', 'Croydon', 'Inverness', 
         'Ayr', 'Ayr', 'Prestwick', 'Troon', 'Kilwinning', 'Beith', 'Beith', 'Maybole', 'Stevenston', 'Saltcoats', 'Ardrossan', 
-        'West Kilbride', 'Dalry', 'Kilbirnie', 'Girvan', 'Isle Of Arran', 'Isle Of Cumbrae', 'Largs', 'Largs', 
-        'Leeds', 'Rochester', 'Plymouth', 
-        'Redhill', 'Sheffield', 
-        'Slough', 'Winchester', 'Southampton', 
-        'Newcastle',
-        'Shrewsbury', 'Wolverhampton', 'Wolverhampton' 
+        'West Kilbride', 'Dalry', 'Kilbirnie', 'Girvan', 'Isle Of Arran', 'Isle Of Cumbrae', 'Largs', 'Largs'
     )
 )
-
 pcdt[is.na(PCT), PCT := pctw[.SD[['PCD']], .(PCT), on = 'PCD'] ]
 
 # create postal town primary key and save table  --------------------------------------------------------------------------------

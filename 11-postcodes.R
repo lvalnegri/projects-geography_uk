@@ -10,7 +10,7 @@
 #  - NHSR.csv
 
 ### load packages -----------------------------------------------------------------------------------------------------------------------------------
-pkg <- c('data.table', 'fst', 'RMySQL')
+pkg <- c('data.table', 'fst', 'RMySQL', 'tabulizer')
 invisible(lapply(pkg, require, character.only = TRUE))
 
 ### set constants -----------------------------------------------------------------------------------------------------------------------------------
@@ -18,22 +18,6 @@ pub_path <- Sys.getenv('PUB_PATH')
 in_path <- file.path(pub_path, 'ext_data', 'geography', 'uk', 'postcodes')
 out_path_lc <- file.path(pub_path, 'ext_data', 'geography', 'uk', 'locations')
 out_path_pc <- file.path(pub_path, 'datasets', 'geography', 'uk')
-
-### define functions --------------------------------------------------------------------------------------------------------------------------------
-get_csv <- function(furl, cols, coln, headr = TRUE, nas = ''){
-    tmp <- tempfile()
-    message('Downloading file...')
-    download.file(furl, tmp)
-    message('Unzipping file...')
-    unzip(tmp, exdir = 'tmpdir')
-    y <- dir('tmpdir', recursive = TRUE, full.names = TRUE)
-    message('Reading csv file...')
-    y <- fread(y[which.max(file.size(y))], header = headr, select = cols, col.names = coln, na.string = nas)
-    message('Done!')
-    unlink(tmp)
-    unlink('tmpdir', recursive = TRUE)
-    y
-}
 
 ### LOAD ONSPD -----------------------------------------------------------------------------------------------------------------------------------
 # download latest @ http://geoportal.statistics.gov.uk/datasets?q=ONS+Postcode+Directory+(ONSPD)+zip&sort_by=updated_at
@@ -54,21 +38,6 @@ postcodes <- fread(
     ),
     na.string = ''
 )
-# check url for latest file @ http://geoportal.statistics.gov.uk/datasets?q=ONS+Postcode+Directory+(ONSPD)+zip&sort_by=updated_at
-# postcodes <- get_csv(
-#         'https://www.arcgis.com/sharing/rest/content/items/abd42fce1e944431b4f24881b5bb048d/data',
-#         c(
-#            'pcd', 'osgrdind', 'doterm', 'usertype', 'long', 'lat', 
-#            'oa11', 'lsoa11', 'msoa11', 'oslaua', 'oscty', 'rgn', 'ctry',
-#            'ttwa', 'osward', 'pcon', 'ced', 'parish', 'bua11', 'buasd11', 'wz11',
-#            'pfa', 'ccg', 'stp'
-#         ),
-#         c(
-#             'postcode', 'osgrdind', 'is_active', 'usertype', 'x_lon', 'y_lat',
-#             'OA', 'LSOA', 'MSOA', 'LAD', 'CTY', 'RGN', 'CTRY', 
-#             'TTWA', 'WARD', 'PCON', 'CED', 'PAR', 'BUA', 'BUAS', 'WPZ', 'PFA', 'CCG', 'STP'
-#         )
-# )
 
 ## CHECK TOTALS ==> Table 1
 postcodes[, .N, CTRY][order(CTRY)]                                  # TOTAL
@@ -86,13 +55,44 @@ postcodes <- postcodes[osgrdind < 9][, osgrdind := NULL][order(OA, postcode)]
 # recode is_active as binary
 postcodes[, is_active := ifelse(is.na(is_active), 1, 0)]
 
-### ADD Postcode Areas, Districts, Sectors -------------------------------------------------------------------------------------------------------
+# set is_active = 1 for all postcodes in output areas that only includes inactive postcodes
+postcodes[!OA %in% unique(postcodes[is_active == 1, OA]), is_active := 1]
+
+### Postcode Areas, Districts, Sectors -------------------------------------------------------------------------------------------------------
+
+# calculate codes from postcodes
 postcodes[, PCA := sub('[0-9]', '', substr(postcode, 1, gregexpr("[[:digit:]]", postcode)[[1]][1] - 1) ) ]
 postcodes[, PCD := gsub(' .*', '', substr(postcode, 1, 4)) ]
 postcodes[, PCS := substr(postcode, 1, 5) ]
 
+# load non-geographic PCS. the file is updated twice a year, January and July, check PAF website for the link https://www.poweredbypaf.com/ ]
+y <- extract_tables('https://www.poweredbypaf.com/wp-content/uploads/2019/02/Jan-2019_current_non-geos-original.pdf')
+
+# extract tables with data at the end
+for(idx1 in 1:length(y)) if(nrow(y[[idx1]]) <= 2) break
+for(idx2 in idx1:length(y)) if(nrow(y[[idx2]]) > 2) break
+ng <- NULL
+for(idx in idx2:length(y)) ng <- rbindlist(list(ng, data.table(y[[idx]])), fill = TRUE)
+
+# recode PCS
+ng <- ng[, .(PCS = gsub(' ', '', V2))]
+ng[nchar(PCS) == 4, PCS := paste(substr(PCS, 1, 3), substring(PCS, 4))]
+ng[nchar(PCS) == 3, PCS := paste0(substr(PCS, 1, 2), '  ', substring(PCS, 3))]
+
+# delete postcodes associated with non-geo PCS
+postcodes <- postcodes[!PCS %in% ng$PCS]
+
+# set is_active = 0 for postcodes in AB1, AB2, AB3
+postcodes[PCD %in% c('AB1', 'AB2', 'AB3'), is_active := 0]
+
+# delete postcodes related to non-geographic or post-box only PCS missed in PAF file
+postcodes <- postcodes[!PCD %in% c(paste0('BN', 50:52), paste0('CF', 25:30), 'CR90', 'LE21', 'LE41', 'N1P', 'NW1W', 'NW26', 'SE1P', 'SL60', 'ST55')]
+
+# check total OAs present after deletion is still 232,029
+unique(postcodes[is_active == 1, .(OA)])[,.N]
+
 # order postcode districts
-pcd <- unique(postcodes[is_active & !postcode %in% postcodes[grep('^[A-Z]{3}', postcode), postcode], .(PCD)])
+pcd <- unique(postcodes[is_active == 1 & !postcode %in% postcodes[grep('^[A-Z]{3}', postcode), postcode], .(PCD)])[order(PCD)]
 pcd[, `:=`( PCDa = regmatches(pcd$PCD, regexpr('[a-zA-Z]+', pcd$PCD)), PCDn = as.numeric(regmatches(pcd$PCD, regexpr('[0-9]+', pcd$PCD))) )]
 pcd <- pcd[order(PCDa, PCDn)][, ordering := 1:.N][, .(PCD, ordering)]
 fwrite(pcd, file.path(out_path_lc, 'PCD.csv'), row.names = FALSE)
@@ -119,7 +119,8 @@ postcodes[,
     .SDcols = cols
 ]
 
-### LOAD NHSPD -----------------------------------------------------------------------------------------------------------------------------------
+
+### LOAD NHSPD ----------------------------------------------------------------------------------------------------------------------------
 # download latest @ http://geoportal.statistics.gov.uk/search?q=NHS%20Postcode%20Directory%20UK%20Full
 # Extract big file from *Data* directory 'nhgYYmmm.csv' and copy it to <in_path> as 'NHSPD.csv'
 # load data
@@ -130,14 +131,6 @@ nhspd <- fread(
     col.names = c('postcode', 'osgrdind', 'nhsr', 'nhso'), 
     na.string = ''
 )
-
-# check url for latest file @ http://geoportal.statistics.gov.uk/search?q=NHS%20Postcode%20Directory%20UK%20Full
-# nhspd <- get_csv( 
-#     'https://www.arcgis.com/sharing/rest/content/items/e1dc68a2c7f64adeb834bd089bd87ca5/data', 
-#     c(1, 12, 17, 24), 
-#     c('postcode', 'osgrdind', 'nhsr', 'nhso'), 
-#     headr = FALSE
-# )
 
 # delete non-geographic
 nhspd <- nhspd[osgrdind < 9][, osgrdind := NULL]
@@ -181,9 +174,9 @@ idx <- idx[osgrdind < 9]
 # select and convert OAC
 oac <- unique(idx[, .(value = oac11), .(location_id = oa11)])
 dbc <- dbConnect(MySQL(), group = 'geouk')
-lk <- dbGetQuery(dbc, 'SELECT subgroup_id, subgroup FROM oac')
+lk <- dbGetQuery(dbc, 'SELECT subgroup_id, subgroup_code FROM oac')
 dbDisconnect(dbc)
-oac <- oac[lk, on = c(value = 'subgroup')][, value := subgroup_id][, subgroup_id := NULL]
+oac <- oac[lk, on = c(value = 'subgroup_code')][, value := subgroup_id][, subgroup_id := NULL]
 
 # select and convert RUC
 ruc <- unique(idx[ctry != 'N92000002', .(value = ru11ind), .(location_id = oa11)])
