@@ -1,6 +1,6 @@
-######################################
-# UK GEOGRAPHY * 22 - Worlpace Zones #
-######################################
+#######################################
+# UK GEOGRAPHY * 22 - Workplace Zones #
+#######################################
 
 # Preliminaries -----------------------------------------------------------------------------------------------------------------
 
@@ -17,7 +17,7 @@ data_path <- file.path(Sys.getenv('PUB_PATH'), 'datasets', 'geography', 'uk')
 w1 <- fread(
         'https://opendata.arcgis.com/datasets/fde83309b6c14456846ca8fdece44a26_0.csv',
         select = c(1, 2, 4, 6),
-        col.names = c('WPZ', 'wzc_group', 'MSOA', 'LAD'),
+        col.names = c('WPZ', 'wzc', 'MSOA', 'LAD'),
         na.strings = ''
 )
 
@@ -25,21 +25,20 @@ w1 <- fread(
 w2 <- fread(
         'https://opendata.arcgis.com/datasets/3f780fd8fac24abaa69b15d4ceb67984_0.csv',
         select = c(1, 2, 4),
-        col.names = c('WPZ', 'wzc_group', 'LAD'),
+        col.names = c('WPZ', 'wzc', 'LAD'),
         na.strings = ''
 )
 w2[, MSOA := NA]
-setcolorder(w2, c('WPZ', 'wzc_group', 'MSOA'))
+setcolorder(w2, c('WPZ', 'wzc', 'MSOA'))
 
 # WPZ UK
 wpz <- rbindlist(list( w1, w2 ))
-wpz[, wzc_sgroup := substr(wzc_group, 1, 1)]
 
 # load other locations from oas -------------------------------------------------------------------------------------------------
 oas <- read.fst(file.path(data_path, 'output_areas'), columns = c('LAD', 'CTY', 'RGN', 'CTRY'), as.data.table = TRUE)
 oas <- unique(oas)
 wpz <- oas[wpz, on = 'LAD'][order(WPZ)]
-setcolorder(wpz, c('WPZ', 'wzc_sgroup', 'wzc_group', 'MSOA'))
+setcolorder(wpz, c('WPZ', 'wzc', 'MSOA'))
 
 ### save results in database ----------------------------------------------------------------------------------------------------------------
 message('Save to database...')
