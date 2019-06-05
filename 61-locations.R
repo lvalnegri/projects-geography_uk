@@ -1,15 +1,15 @@
 ###############################################################
 # UK GEOGRAPHY * 61 - LOCATIONS
 ###############################################################
-# All files comes from ONSPD, unless otherwise specified.
+# All files come from ONSPD/documents, and saved in <data_path>/locations (unless otherwise specified)
 
 # load packages ---------------------------------------------------------------------------------------------------------------------------
 pkg <- c('data.table', 'fst', 'rgdal', 'rgeos', 'RMySQL')
 invisible(lapply(pkg, require, character.only = TRUE))
 
 # set constants ---------------------------------------------------------------------------------------------------------------------------
-data_path <- file.path(Sys.getenv('PUB_PATH'), 'ext-data/geography_uk')
-data_out  <- file.path(Sys.getenv('PUB_PATH'), 'dataframes/geography_uk')
+data_path <- file.path(Sys.getenv('PUB_PATH'), 'ext_data', 'uk', 'geography')
+data_out <- file.path(Sys.getenv('PUB_PATH'), 'datasets', 'uk,', 'geography')
 gb_grid  <- '+init=epsg:27700'
 ni_grid  <- '+init=epsg:29902'
 latlong <- '+init=epsg:4326'
@@ -20,7 +20,7 @@ locations <- data.table(
 )
 
 # Define functions ------------------------------------------------------------------------------------------------------------------------
-get_measures <- function(loca_id, has.ni = TRUE, bnd_path = '/usr/local/share/data/boundaries/shp/UK'){
+get_measures <- function(loca_id, has.ni = TRUE, bnd_path = file.path(Sys.getenv('PUB_PATH'), 'boundaries', 'shp', 's00')){
     gb_grid  <- '+init=epsg:27700'
     ni_grid  <- '+init=epsg:29902'
     bnd <- readOGR(bnd_path, loca_id)
@@ -29,7 +29,7 @@ get_measures <- function(loca_id, has.ni = TRUE, bnd_path = '/usr/local/share/da
     # separate GB from NI (because of different projections)
     lkps <- read.fst(file.path(data_out, 'output_areas'), columns = c('CTRY', loca_id), as.data.table = TRUE)
     lkps <- unique(lkps)
-    lkps <- as.character(lkps[CTRY == 'N', get(loca_id)])
+    lkps <- as.character(lkps[CTRY == 'NIE', get(loca_id)])
     if(has.ni){
         bnd.ni <- subset(bnd, bnd$id %in% lkps)
         bnd.ni <- spTransform(bnd.ni, CRS(ni_grid))
@@ -65,13 +65,15 @@ get_add_locations <- function(tcode, col2select = 1:2, has.ni = TRUE){
     y[, `:=`(location_id = as.character(location_id), type = tcode, wx_lon = NA, wy_lat = NA)]
     setcolorder(y, cols)
 
-    message('Done! Processed ', nrow(y), ' ', tcode, ' polygons.')
+    message('Done! Processed ', nrow(y), ' ', tcode, ' areas.')
     return(y)    
 }
 
-## Process locations: LSOA ----------------------------------------------------------------------------------------------------------------
+# "Census" hierarchy ----------------------------------------------------------------------------------------------------------------------
 
-message('Processing LSOAs...')
+## > LSOA ---------------------------------------------------------------------------------------------------------------------------------
+message('Process locations: LSOA...')
+
 # read code and names
 y <- fread( file.path(data_path, 'locations', 'LSOA.csv'), col.names = c('location_id', 'name'))
 
@@ -82,14 +84,14 @@ y <- y[get_measures('LSOA'), on = 'location_id']
 
 ## England
 pwc.ew <- fread( 
-        file.path(data_path, 'centroids', 'EW_LSOA.csv'), 
+        file.path(data_path, 'centroids', 'LSOA_pwc.csv'), 
         select = c('lsoa11cd', 'X', 'Y'), 
         col.names = c('location_id', 'wx_lon', 'wy_lat')
 )
 
 ## Scotland
 # read LSOA boundaries, then extract ids and centroids
-pwc.sc <- readOGR(file.path(data_path, 'centroids'), 'SC_LSOA')
+pwc.sc <- readOGR(file.path(data_path, 'centroids'), 'SC_LSOA_pwc')
 pwc.sc <- pwc.sc@data[, c('DataZone', 'Easting', 'Northing')]
 names(pwc.sc) <- c('location_id', 'wx_lon', 'wy_lat')
 pwc.sc$wx_lon <- as.integer(as.character(pwc.sc$wx_lon))
@@ -102,8 +104,8 @@ proj4string(pwc.sc) <- CRS(gb_grid)
 pwc.sc <- spTransform(pwc.sc, CRS(latlong))
 pwc.sc <- as.data.frame(pwc.sc)
 
-## N. Ireland
-# still not available
+## N. Ireland:
+# not available
 
 ## UK
 pwc <- rbindlist(list( pwc.ew, pwc.sc))
@@ -113,15 +115,13 @@ y[, type := 'LSOA']
 setcolorder(y, cols)
 # add to main container
 locations[, location_id := as.character(location_id)]
-locations <- rbindlist( list(locations, y) )
+locations <- rbindlist(list( locations, y) )
 
-
-## Process locations: MSOA ----------------------------------------------------------------------------------------------------------------
-
-message('Processing MSOAs...')
+## > MSOA ---------------------------------------------------------------------------------------------------------------------------------
+message('Process locations: MSOA...')
 # read code and names
 y <- fread( file.path(data_path, 'locations', 'MSOA.csv'), col.names = c('location_id', 'name'))
-y[!grep('99999999', location_id)]
+y <- y[!grep('99999999', location_id)]
 
 # calculate centroids, perimeter, area
 y <- y[get_measures('MSOA', has.ni = FALSE), on = 'location_id']
@@ -130,14 +130,14 @@ y <- y[get_measures('MSOA', has.ni = FALSE), on = 'location_id']
 
 # England
 pwc.ew <- fread(
-        file.path(data_path, 'centroids', 'EW_MSOA.csv'), 
+        file.path(data_path, 'centroids', 'MSOA_pwc.csv'), 
         select = c('msoa11cd', 'X', 'Y'), 
         col.names = c('location_id', 'wx_lon', 'wy_lat')
 )
 
 ## Scotland
 # read MSOA boundaries, then extract ids and centroids
-pwc.sc <- readOGR(file.path(data_path, 'centroids'), 'SC_MSOA')
+pwc.sc <- readOGR(file.path(data_path, 'centroids'), 'SC_MSOA_pwc')
 pwc.sc <- pwc.sc@data[, c('InterZone', 'Easting', 'Northing')]
 names(pwc.sc) <- c('location_id', 'wx_lon', 'wy_lat')
 pwc.sc$wx_lon <- as.integer(as.character(pwc.sc$wx_lon))
@@ -150,6 +150,9 @@ proj4string(pwc.sc) <- CRS(gb_grid)
 pwc.sc <- spTransform(pwc.sc, CRS(latlong))
 pwc.sc <- as.data.frame(pwc.sc)
 
+## N. Ireland:
+# not available
+
 ## UK
 pwc <- rbindlist(list( pwc.ew, pwc.sc))
 
@@ -158,25 +161,38 @@ y[, type := 'MSOA']
 setcolorder(y, cols)
 # add to main container
 locations[, location_id := as.character(location_id)]
-locations <- rbindlist( list(locations, y) )
+locations <- rbindlist(list( locations, y) )
 
 
-## Process locations: LAD -----------------------------------------------------------------------------------------------------------------
-locations <- rbindlist( list(locations, get_add_locations('LAD') ))
+## > Other Types --------------------------------------------------------------------------------------------------------------------------
+message('Process locations: LAD...')
+locations <- rbindlist(list( locations, get_add_locations('LAD') ))
 
-## Process locations: CTY --------------------------------------------------------------------------------------------------------
-# NOTE that the file is not the one in ONSPD but ==> 'https://opendata.arcgis.com/datasets/180a69233de94a8da3fb6a8a4959fcc7_0.csv'
-locations <- rbindlist( list(locations, get_add_locations('CTY', 3:4, FALSE) ))
+message('Process locations: CTY...')
+# look for updates: http://geoportal.statistics.gov.uk/datasets?q=LAD_CTY_LU
+y1 <- fread(
+        file.path(data_path, 'lookups', 'Local_Authority_District_to_County_December_2018_Lookup_in_England.csv'), 
+        select = 3:4,
+        col.names = c('CTY', 'name')
+)
+y2 <- fread(file.path(data_path, 'locations', 'LAD.csv'), select = 1:2, col.names = c('CTY', 'name'))
+y3 <- data.table(
+    'CTY' = paste0(c('N', 'S', 'W'), '10000001'),
+    'name' = c('Northern Ireland (pseudo)', 'Scotland (pseudo)', 'Wales (pseudo)')
+)
+y <- rbindlist(list( unique(y1[, .(CTY, name)]), y2[grepl('E060', CTY), .(CTY = gsub('E060', 'E069', CTY), name)], y3 ))
+fwrite(y[order(CTY)], paste0(data_path, '/locations/CTY.csv'))
+locations <- rbindlist(list( locations, get_add_locations('CTY') ))
 
-## Process locations: RGN --------------------------------------------------------------------------------------------------------
-locations <- rbindlist( list(locations, get_add_locations('RGN', c(1, 3), FALSE) ))
+message('Process locations: RGN...')
+# the file has been manually edited to include pseudo NSW
+locations <- rbindlist(list( locations, get_add_locations('RGN') ))
 
-## Process locations: CTRY -------------------------------------------------------------------------------------------------------
-message('Processing CTRYs...')
+message('Process locations: CTRY...')
 # read code and names
-y <- data.table('location_id' = c('E', 'N', 'S', 'W'), 'name' = c('England', 'N. Ireland', 'Scotland', 'Wales'))
+y <- data.table('location_id' = c('ENG', 'NIE', 'SCO', 'WLS'), 'name' = c('England', 'N. Ireland', 'Scotland', 'Wales'))
 
-# calculate centroids, perimeter, area
+# calculate geometric centroids, perimeter, area
 y <- y[get_measures('CTRY'), on = 'location_id']
 y <- y[order(location_id)]
 y[, `:=`(type = 'CTRY', wx_lon = NA, wy_lat = NA)]
@@ -184,59 +200,97 @@ setcolorder(y, cols)
 
 # add to main container
 locations[, location_id := as.character(location_id)]
-locations <- rbindlist( list(locations, y) )
+locations <- rbindlist(list( locations, y) )
 
 
-## Process locations: PCS --------------------------------------------------------------------------------------------------------
-locations <- rbindlist( list(locations, get_add_locations('PCS', 1) ))
+# "Postcodes" hierarchy -------------------------------------------------------------------------------------------------------------------
 
-## Process locations: PCD --------------------------------------------------------------------------------------------------------
-locations <- rbindlist( list(locations, get_add_locations('PCD', 1) ))
+message('Process locations: PCS...')
+locations <- rbindlist(list( locations, get_add_locations('PCS', 1) ))
 
-## Process locations: PCT -------------------------------------------------------------------------------------------------------
-locations <- rbindlist( list(locations, get_add_locations('PCT') ))
+message('Process locations: PCD...')
+locations <- rbindlist(list( locations, get_add_locations('PCD', 1) ))
 
-## Process locations: PCA --------------------------------------------------------------------------------------------------------
-locations <- rbindlist( list(locations, get_add_locations('PCA') ))
+message('Process locations: PCT...')
+locations <- rbindlist(list( locations, get_add_locations('PCT') ))
 
-## Process locations: TTWA -------------------------------------------------------------------------------------------------------
-locations <- rbindlist( list(locations, get_add_locations('TTWA') ))
+message('Process locations: PCA...')
+locations <- rbindlist(list( locations, get_add_locations('PCA') ))
 
-## Process locations: WARD -------------------------------------------------------------------------------------------------------
-locations <- rbindlist( list(locations, get_add_locations('WARD') ))
 
-## Process locations: PCON -------------------------------------------------------------------------------------------------------
-locations <- rbindlist( list(locations, get_add_locations('PCON') ))
+# "Statistical" hierarchy -----------------------------------------------------------------------------------------------------------------
 
-## Process locations: CED --------------------------------------------------------------------------------------------------------
-locations <- rbindlist( list(locations, get_add_locations('CED', has.ni = FALSE) ))
+message('Process locations: MTC...')
+y <- fread(
+        file.path(data_path, 'lookups', 'Output_Area_2011_to_Major_Towns_and_Cities_December_2015_Lookup_in_England_and_Wales.csv'), 
+        select = 2:3,
+        col.names = c('MTC', 'name')
+)
+y <- unique(y[nchar(MTC) > 0, .(MTC, name)])
+fwrite(y[order(MTC)], paste0(data_path, '/locations/MTC.csv'))
+locations <- rbindlist(list( locations, get_add_locations('MTC', has.ni = FALSE) ))
 
-## Process locations: PAR --------------------------------------------------------------------------------------------------------
-locations <- rbindlist( list(locations, get_add_locations('PAR', has.ni = FALSE) ))
+message('Process locations: BUA...')
+locations <- rbindlist(list( locations, get_add_locations('BUA', has.ni = FALSE) ))
 
-## Process locations: MTC --------------------------------------------------------------------------------------------------------
-# NOTE that the file is not the one in ONSPD but ==> 'https://opendata.arcgis.com/datasets/78ff27e752e44c3194617017f3f15929_0.csv'
-locations <- rbindlist( list(locations, get_add_locations('MTC', 2:3, FALSE) ))
+message('Process locations: BUAS...')
+locations <- rbindlist(list( locations, get_add_locations('BUAS', has.ni = FALSE) ))
 
-## Process locations: BUA --------------------------------------------------------------------------------------------------------
-locations <- rbindlist( list(locations, get_add_locations('BUA', has.ni = FALSE) ))
 
-## Process locations: BUAS -------------------------------------------------------------------------------------------------------
-locations <- rbindlist( list(locations, get_add_locations('BUAS', has.ni = FALSE) ))
+# "Admin" hierarchy ----------------------------------------------------------------------------------------------------------------------
 
-# Save to database --------------------------------------------------------------------------------------------------------------
+message('Process locations: TTWA...')
+locations <- rbindlist(list( locations, get_add_locations('TTWA') ))
+
+message('Process locations: WARD...')
+locations <- rbindlist(list( locations, get_add_locations('WARD') ))
+
+message('Process locations: PCON...')
+locations <- rbindlist(list( locations, get_add_locations('PCON') ))
+
+message('Process locations: CED...')
+locations <- rbindlist(list( locations, get_add_locations('CED', has.ni = FALSE) ))
+
+message('Process locations: PAR...')
+locations <- rbindlist(list( locations, get_add_locations('PAR', has.ni = FALSE) ))
+
+# "Services" hierarchy ----------------------------------------------------------------------------------------------------------------------
+
+message('Process locations: PFA...')
+locations <- rbindlist(list( locations, get_add_locations('PFA', has.ni = FALSE) ))
+
+message('Process locations: STP...')
+locations <- rbindlist(list( locations, get_add_locations('STP', has.ni = FALSE) ))
+
+message('Process locations: CCG...')
+locations <- rbindlist(list( locations, get_add_locations('CCG', col2select = c(1, 3)) ))
+
+message('Process locations: NHSO...')
+locations <- rbindlist(list( locations, get_add_locations('NHSO', col2select = c(1, 3), has.ni = FALSE) ))
+
+message('Process locations: NHSR...')
+locations <- rbindlist(list( locations, get_add_locations('NHSR', col2select = c(1, 3), has.ni = FALSE) ))
+
+
+# Save to database ------------------------------------------------------------------------------------------------------------------------
 message('Saving to database...')
-dbc <- dbConnect(MySQL(), group = 'dataOps', dbname = 'geography_uk')
+dbc <- dbConnect(MySQL(), group = 'geography')
 dbSendQuery(dbc, 'TRUNCATE TABLE locations')
 dbWriteTable(dbc, 'locations', locations, row.names = FALSE, append = TRUE)
 dbDisconnect(dbc)
 
-# Recode and save as fst --------------------------------------------------------------------------------------------------------
+# Recode and save as fst with index by type and region --------------------------------------------------------------------------
 message('Saving as fst...')
 locations[, type := factor(type)]
+locations <- locations[order(type, location_id)]
+y <- locations[, .N, type]
+y[, n2 := cumsum(N)][, n1 := shift(n2, 1L, type = 'lag') + 1][is.na(n1), n1 := 1]
+setcolorder(y, c('type', 'N', 'n1', 'n2'))
+write.fst(y, file.path(data_out, 'locations.idx'))
+setcolorder(locations, 'type')
 write.fst(locations, file.path(data_out, 'locations'))
 
 # Clean & Exit -----------------------------------------------------------------------------------------------------------------
-message('FINISHED!')
+message('Finished!')
 rm(list = ls())
 gc()

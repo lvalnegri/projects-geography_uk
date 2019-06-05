@@ -1,30 +1,38 @@
-###############################################################
-# UK GEOGRAPHY * 10 - POSTCODES 
-###############################################################
-# You need to provide the following CSV in in_path:
-#  - ONSPD
-#  - NHSPD
-#  - postcodes_mosaics
-# You need to provide the following CSV in out_path_lc:
-#  - NHSO.csv
-#  - NHSR.csv
+#################################
+# UK GEOGRAPHY * 11 - POSTCODES #
+#################################
 
-### load packages -----------------------------------------------------------------------------------------------------------------------------------
+### load packages ---------------------------------------------------------------------------------------------------------------
 pkg <- c('data.table', 'fst', 'RMySQL', 'tabulizer')
 invisible(lapply(pkg, require, character.only = TRUE))
 
-### set constants -----------------------------------------------------------------------------------------------------------------------------------
+### set constants ---------------------------------------------------------------------------------------------------------------
 pub_path <- Sys.getenv('PUB_PATH')
-in_path <- file.path(pub_path, 'ext_data', 'geography', 'uk', 'postcodes')
-out_path_lc <- file.path(pub_path, 'ext_data', 'geography', 'uk', 'locations')
-out_path_pc <- file.path(pub_path, 'datasets', 'geography', 'uk')
+ext_path = file.path(pub_path, 'ext_data', 'uk', 'geography')
+dts_path <- file.path(pub_path, 'datasets', 'uk', 'geography')
 
-### LOAD ONSPD -----------------------------------------------------------------------------------------------------------------------------------
+### define functions ------------------------------------------------------------------------------------------------------------
+get_file <- function(x, exp_name = 'ONSPD', pc_path = file.path(ext_path, 'postcodes')){
+    message('Downloading zip file...')
+    tmp <- tempfile()
+    download.file(x, destfile = tmp)
+    fname <- unzip(tmp, list = TRUE)
+    fname <- fname[order(fname$Length, decreasing = TRUE), 'Name'][1]
+    message('Extracting csv file...')
+    unzip(tmp, files = fname, exdir = pc_path, junkpaths = TRUE)
+    unlink(tmp)
+    system(paste0('mv ', pc_path, '/', basename(fname), ' ',  pc_path, '/', exp_name, '.csv'))
+    message('Done!')
+}
+
+### LOAD ONSPD ------------------------------------------------------------------------------------------------------------------
+
 # download latest @ http://geoportal.statistics.gov.uk/datasets?q=ONS+Postcode+Directory+(ONSPD)+zip&sort_by=updated_at
-# Extract big file from *Data* directory 'ONSPD_MMM_YYYY_UK.csv' and copy it to <in_path> as 'ONSPD.csv'
+get_file('https://www.arcgis.com/sharing/rest/content/items/5194b0c9d5a042789058609a4435ec7c/data')
+
 # load data
 postcodes <- fread(
-    file.path(in_path, 'ONSPD.csv'), 
+    file.path(ext_path, 'postcodes', 'ONSPD.csv'), 
     select = c(
        'pcd', 'osgrdind', 'doterm', 'usertype', 'long', 'lat', 
        'oa11', 'lsoa11', 'msoa11', 'oslaua', 'oscty', 'rgn', 'ctry',
@@ -58,14 +66,14 @@ postcodes[, is_active := ifelse(is.na(is_active), 1, 0)]
 # set is_active = 1 for all postcodes in output areas that only includes inactive postcodes
 postcodes[!OA %in% unique(postcodes[is_active == 1, OA]), is_active := 1]
 
-### Postcode Areas, Districts, Sectors -------------------------------------------------------------------------------------------------------
+### Postcode Areas, Districts, Sectors ------------------------------------------------------------------------------------------
 
 # calculate codes from postcodes
 postcodes[, PCA := sub('[0-9]', '', substr(postcode, 1, gregexpr("[[:digit:]]", postcode)[[1]][1] - 1) ) ]
 postcodes[, PCD := gsub(' .*', '', substr(postcode, 1, 4)) ]
 postcodes[, PCS := substr(postcode, 1, 5) ]
 
-# load non-geographic PCS. the file is updated twice a year, January and July, check PAF website for the link https://www.poweredbypaf.com/ ]
+# load non-geographic PCS. the file is updated Jan and Jul, check PAF website for the correct link www.poweredbypaf.com
 y <- extract_tables('https://www.poweredbypaf.com/wp-content/uploads/2019/02/Jan-2019_current_non-geos-original.pdf')
 
 # extract tables with data at the end
@@ -79,6 +87,9 @@ ng <- ng[, .(PCS = gsub(' ', '', V2))]
 ng[nchar(PCS) == 4, PCS := paste(substr(PCS, 1, 3), substring(PCS, 4))]
 ng[nchar(PCS) == 3, PCS := paste0(substr(PCS, 1, 2), '  ', substring(PCS, 3))]
 
+# store number of OAs for future check
+n_OAs <- unique(postcodes[is_active == 1, .(OA)])[,.N]
+
 # delete postcodes associated with non-geo PCS
 postcodes <- postcodes[!PCS %in% ng$PCS]
 
@@ -86,29 +97,48 @@ postcodes <- postcodes[!PCS %in% ng$PCS]
 postcodes[PCD %in% c('AB1', 'AB2', 'AB3'), is_active := 0]
 
 # delete postcodes related to non-geographic or post-box only PCS missed in PAF file
-postcodes <- postcodes[!PCD %in% c(paste0('BN', 50:52), paste0('CF', 25:30), 'CR90', 'LE21', 'LE41', 'N1P', 'NW1W', 'NW26', 'SE1P', 'SL60', 'ST55')]
+postcodes <- 
+    postcodes[!PCD %in% 
+        c(paste0('BN', 50:52), paste0('CF', 25:30), 'CR90', 'LE21', 'LE41', 'N1P', 'NW1W', 'NW26', 'SE1P', 'SL60', 'ST55')
+    ]
 
-# check total OAs present after deletion is still 232,029
-unique(postcodes[is_active == 1, .(OA)])[,.N]
+# check total OAs after deletion is still the same
+n_OAs == unique(postcodes[is_active == 1, .(OA)])[,.N]
 
 # order postcode districts
 pcd <- unique(postcodes[is_active == 1 & !postcode %in% postcodes[grep('^[A-Z]{3}', postcode), postcode], .(PCD)])[order(PCD)]
-pcd[, `:=`( PCDa = regmatches(pcd$PCD, regexpr('[a-zA-Z]+', pcd$PCD)), PCDn = as.numeric(regmatches(pcd$PCD, regexpr('[0-9]+', pcd$PCD))) )]
+pcd[, `:=`( 
+    PCDa = regmatches(pcd$PCD, regexpr('[a-zA-Z]+', pcd$PCD)), 
+    PCDn = as.numeric(regmatches(pcd$PCD, regexpr('[0-9]+', pcd$PCD))) 
+)]
 pcd <- pcd[order(PCDa, PCDn)][, ordering := 1:.N][, .(PCD, ordering)]
-fwrite(pcd, file.path(out_path_lc, 'PCD.csv'), row.names = FALSE)
+fwrite(pcd, file.path(ext_path, 'locations', 'PCD.csv'), row.names = FALSE)
 
 # order postcode sectors 
 pcs <- unique(postcodes[is_active & !postcode %in% postcodes[grep('^[A-Z]{3}', postcode), postcode], .(PCD, PCS)])
 pcs <- pcs[pcd, on = 'PCD']
 pcs <- pcs[order(ordering, PCS)][, ordering := 1:.N][, .(PCS, ordering)]
-fwrite(pcs, file.path(out_path_lc, 'PCS.csv'), row.names = FALSE)
+fwrite(pcs, file.path(ext_path, 'locations', 'PCS.csv'), row.names = FALSE)
 
 # check and save total Table 2 (remember that now postcodes without grid have been deleted)
 pca <- rbindlist(list(
-    postcodes[, .(PCD = uniqueN(PCD), PCS = uniqueN(PCS), live = sum(is_active), terminated = sum(!is_active), total = .N), PCA][order(PCA)],
-    postcodes[, .(PCA = 'TOTAL UK', PCD = uniqueN(PCD), PCS = uniqueN(PCS), live = sum(is_active), terminated = sum(!is_active), total = .N)]        
+    postcodes[, .(
+        PCD = uniqueN(PCD), 
+        PCS = uniqueN(PCS), 
+        live = sum(is_active), 
+        terminated = sum(!is_active), 
+        total = .N
+    ), PCA][order(PCA)],
+    postcodes[, .(
+        PCA = 'TOTAL UK', 
+        PCD = uniqueN(PCD), 
+        PCS = uniqueN(PCS), 
+        live = sum(is_active), 
+        terminated = sum(!is_active), 
+        total = .N
+    )]        
 ))
-fwrite(pca, file.path(in_path, 'pca_totals.csv'), row.names = FALSE)
+fwrite(pca, file.path(ext_path, 'postcodes', 'pca_totals.csv'), row.names = FALSE)
 
 # change pseudo-codes to NA
 cols <- c('MSOA', 'CTY', 'RGN', 'CED', 'PAR', 'BUA', 'BUAS', 'PFA', 'STP')
@@ -119,13 +149,13 @@ postcodes[,
     .SDcols = cols
 ]
 
-
-### LOAD NHSPD ----------------------------------------------------------------------------------------------------------------------------
+### LOAD NHSPD ------------------------------------------------------------------------------------------------------------------
 # download latest @ http://geoportal.statistics.gov.uk/search?q=NHS%20Postcode%20Directory%20UK%20Full
-# Extract big file from *Data* directory 'nhgYYmmm.csv' and copy it to <in_path> as 'NHSPD.csv'
+get_file('https://www.arcgis.com/sharing/rest/content/items/fd3ffbae5dfe4b9db21070486c6a0d64/data', exp_name = 'NHSPD')
+
 # load data
 nhspd <- fread( 
-    file.path(in_path, 'NHSPD.csv'), 
+    file.path(ext_path, 'postcodes', 'NHSPD.csv'), 
     header = FALSE,
     select = c(1, 12, 17, 24), 
     col.names = c('postcode', 'osgrdind', 'nhsr', 'nhso'), 
@@ -137,21 +167,21 @@ nhspd <- nhspd[osgrdind < 9][, osgrdind := NULL]
 # recode postcode in 7-chars form
 nhspd[, postcode := paste0(substr(postcode, 1, 4), substring(postcode, 6))]
 # load NHSO names to change codes from NHS to ONS
-y <- fread(file.path(out_path_lc, 'NHSO.csv'), select = 1:2, col.names = c('NHSO', 'nhso'))
+y <- fread(file.path(ext_path, 'locations', 'NHSO.csv'), select = 1:2, col.names = c('NHSO', 'nhso'))
 nhspd <- y[nhspd, on = 'nhso'][, nhso := NULL]
 # load NHSR names to change codes from NHS to ONS
-y <- fread(file.path(out_path_lc, 'NHSR.csv'), select = 1:2, col.names = c('NHSR', 'nhsr'))
+y <- fread(file.path(ext_path, 'locations', 'NHSR.csv'), select = 1:2, col.names = c('NHSR', 'nhsr'))
 nhspd <- y[nhspd, on = 'nhsr'][, nhsr := NULL]
 # join with postcodes
 postcodes <- nhspd[postcodes, on = 'postcode']
 
-### add mosaic types --------------------------------------------------------------------------------------------------------------------------------
-mosaics <- fread(file.path(in_path, 'postcodes_mosaics.csv'))
-y <- read.fst(file.path(out_path_pc, 'mosaic_types'), columns = c('code_exp', 'code'), as.data.table = TRUE)
+### add mosaic types ------------------------------------------------------------------------------------------------------------
+mosaics <- fread(file.path(ext_path, 'postcodes', 'postcodes_mosaics.csv'))
+y <- fread(file.path(pub_path, 'ancillaries', 'uk', 'geodemographics', 'mosaic_types.csv'), select = c('code_exp', 'code'))
 mosaics <- y[mosaics, on = c(code_exp = 'mosaic_type')]
 postcodes <- mosaics[, .(postcode, mosaic_type = code)][postcodes, on = 'postcode']
 
-### save results in database ------------------------------------------------------------------------------------------------------------------------
+### save results in database ----------------------------------------------------------------------------------------------------
 dbc <- dbConnect(MySQL(), group = 'geouk')
 dbSendQuery(dbc, "TRUNCATE TABLE postcodes")
 dbWriteTable(dbc, 'postcodes', postcodes, row.names = FALSE, append = TRUE)
@@ -159,45 +189,14 @@ pn <- dbGetQuery(dbc, 'SELECT * FROM postcodes LIMIT 0')
 dbDisconnect(dbc)
 setcolorder(postcodes, intersect(names(pn), names(postcodes)))
 
-### recode as factors, then save results in fst format ----------------------------------------------------------------------------------------------
+### recode as factors, then save results in fst format --------------------------------------------------------------------------
 cols <- colnames(postcodes)
 cols <- cols[which(names(postcodes) == 'OA'):length(cols)]
 postcodes[, (cols) := lapply(.SD, factor), .SDcols = cols]
-write.fst(postcodes, file.path(out_path_pc, 'postcodes'))
-
-### SAVE IMD, OAC, RUC ------------------------------------------------------------------------------------------------------------------------------
-
-# load values from ONSPD
-idx <- fread(file.path(in_path, 'ONSPD.csv'), select = c('osgrdind', 'oa11', 'lsoa11', 'imd', 'oac11', 'ru11ind', 'ctry'))
-idx <- idx[osgrdind < 9]
-
-# select and convert OAC
-oac <- unique(idx[, .(value = oac11), .(location_id = oa11)])
-dbc <- dbConnect(MySQL(), group = 'geouk')
-lk <- dbGetQuery(dbc, 'SELECT subgroup_id, subgroup_code FROM oac')
-dbDisconnect(dbc)
-oac <- oac[lk, on = c(value = 'subgroup_code')][, value := subgroup_id][, subgroup_id := NULL]
-
-# select and convert RUC
-ruc <- unique(idx[ctry != 'N92000002', .(value = ru11ind), .(location_id = oa11)])
-dbc <- dbConnect(MySQL(), group = 'geouk')
-lk <- dbGetQuery(dbc, 'SELECT area_id, area FROM ruc')
-dbDisconnect(dbc)
-ruc <- ruc[lk, on = c(value = 'area')][, value := area_id][, area_id := NULL]
-
-# select IMD
-imd <- unique(idx[, .(value = imd), .(location_id = lsoa11)])
-
-# bind above together
-idx <- rbind(data.frame(idx = 1, oac), data.frame(idx = 2, ruc), data.frame(idx = 3, imd))
-
-# save to database and fst format
-dbc <- dbConnect(MySQL(), group = 'geouk')
-dbSendQuery(dbc, "DELETE FROM indices WHERE idx <= 3")
-dbWriteTable(dbc, 'indices', idx, row.names = FALSE, append = TRUE)
-dbDisconnect(dbc)
+write.fst(postcodes, file.path(dts_path, 'postcodes'))
 
 # CLEAN & EXIT ------------------------------------------------------------------------------------------------------------------
 rm(list = ls())
 gc()
+
 

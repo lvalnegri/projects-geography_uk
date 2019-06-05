@@ -1,7 +1,12 @@
 ####################################
 # UK GEOGRAPHY * 21 - Output Areas #
 ####################################
-# Check if lookups need to be updated
+
+## Check if the following lookups need to be updated:
+#  - LAD => CTY
+#  - OA => PCS for Scotland (using boundaries)
+#  - OA => WARD
+#  - OA => PAR 
 
 ####### ---------------------------------------------------------------------------------------------------------------------------------------------
 #### PRELIMINARIES ------------------------------------------------------------------------------------------------------------------------
@@ -11,11 +16,11 @@ pkg <- c('data.table', 'fst', 'readODS', 'readxl', 'rgdal', 'rgeos', 'RMySQL')
 invisible(lapply(pkg, require, character.only = TRUE))
 
 # set constants -------------------------------------------------------------------------------------------------------------------------------------
-geo_path <- file.path(Sys.getenv('PUB_PATH'), 'ext_data', 'geography', 'uk')
+geo_path <- file.path(Sys.getenv('PUB_PATH'), 'ext_data', 'uk', 'geography')
 lkps_path <- file.path(geo_path, 'lookups')
 loca_path <- file.path(geo_path, 'locations')
 bnd_path <- file.path(geo_path, 'boundaries')
-data_out <- file.path(Sys.getenv('PUB_PATH'), 'datasets', 'geography', 'uk')
+data_out <- file.path(Sys.getenv('PUB_PATH'), 'datasets', 'uk', 'geography')
 
 # define functions ----------------------------------------------------------------------------------------------------------------------------------
 build_lookups_table <- function(child, parent, is_active = TRUE, filter_country = NULL, save_results = FALSE, out_path = lkps_path){
@@ -77,8 +82,8 @@ get_summary_area <- function(area_type, country = TRUE){
     rbindlist(list( 
         unique(y[!is.na(X), .(X, CTRY)])[, .N, CTRY], 
         data.table('--', paste( rep('-', nchar(uniqueN(y[!is.na(X)]))), collapse = '')), 
-        data.table('UK', uniqueN(uk[!is.na(get(area_type)), get(area_type)])) 
-    ))
+        data.table('UK', uniqueN(uk[!is.na(get(area_type)), get(area_type)]))
+    ), use.names = FALSE)
 }
 fill_missing_oas <- function(miss, ref){
     setnames(uk, c(miss, ref), c('X', 'Y'))
@@ -99,17 +104,29 @@ pc <- pc[is_active == 1]
 ### 1- OA ==> LSOA ----------------------------------------------------------------------------------------------------------------------------------
 
 message('Processing [OA=>LSOA] for England...')
-eng <- fread(file.path(lkps_path, 'OA11_LSOA11_MSOA11_LAD11_EW_LUv2.csv'), select = 1:2, col.names = c('OA', 'LSOA'))
+eng <- fread(
+        file.path(lkps_path, 'OA11_LSOA11_MSOA11_LAD11_EW_LUv2.csv'), 
+        select = 1:2, 
+        col.names = c('OA', 'LSOA')
+)
 
 message('Processing [OA=>LSOA] for Scotland...')
-sco <- fread(file.path(lkps_path, '00462936.csv'), select = 1:2, col.names = c('OA', 'LSOA'))
+sco <- fread(
+        file.path(lkps_path, '00462936.csv'), 
+        select = 1:2, 
+        col.names = c('OA', 'LSOA')
+)
 
 message('Processing [OA=>LSOA] for N.Ireland...')
-nie <- read_ods(file.path(lkps_path, 'Geographic_Data_(statistical_geographies).ods'), sheet = 1, skip = 4)
+nie <- read_ods(
+        file.path(lkps_path, 'Geographic_Data_(statistical_geographies).ods'), 
+        sheet = 1, 
+        skip = 4
+)
 nie <- nie[, 1:2]
 
 message('Bounding together [OA=>LSOA] for UK...')
-uk <- rbindlist(list(eng, sco, nie))
+uk <- rbindlist(list(eng, sco, nie), use.names = FALSE)
 # check totals OA: UK 232,296, E 171,372, W 10,036, S 46,351, N 4,537
 get_summary_area('OA', country = FALSE)
 # check totals LSOA: UK 42,619, E 32,844, W 1,909, S 6,976, N 890
@@ -118,10 +135,18 @@ get_summary_area('LSOA', country = FALSE)
 ### 2- LSOA > MSOA ----------------------------------------------------------------------------------------------------------------------------------
 
 message('Processing [OA=>MSOA] for England...')
-eng <- fread(file.path(lkps_path, 'OA11_LSOA11_MSOA11_LAD11_EW_LUv2.csv'), select = c(1, 4), col.names = c('OA', 'MSOA'))
+eng <- fread(
+        file.path(lkps_path, 'OA11_LSOA11_MSOA11_LAD11_EW_LUv2.csv'), 
+        select = c(1, 4), 
+        col.names = c('OA', 'MSOA')
+)
 
 message('Processing [OA=>MSOA] for Scotland...')
-sco <- fread(file.path(lkps_path, '00462936.csv'), select = c(1, 3), col.names = c('OA', 'MSOA'))
+sco <- fread(
+        file.path(lkps_path, '00462936.csv'), 
+        select = c(1, 3), 
+        col.names = c('OA', 'MSOA')
+)
 
 # ===> there are no MSOA for NI
 
@@ -154,7 +179,11 @@ get_summary_area('LAD', country = FALSE)
 ### 4- LAD > CTY (E) --------------------------------------------------------------------------------------------------------------------------------
 
 message('Processing [LAD=>CTY] for England...')
-y <- fread(file.path(lkps_path, 'Local_Authority_District_to_County_December_2018_Lookup_in_England.csv'), select = c(1, 3), col.names = c('LAD', 'CTY'))
+y <- fread(
+        file.path(lkps_path, 'Local_Authority_District_to_County_April_2019_Lookup_in_England.csv'), 
+        select = c(1, 3), 
+        col.names = c('LAD', 'CTY')
+)
 # add Unitary Authority from LAD to complete England (changing E060 => E069 to keep primary key valid)
 ym <- unique(uk[substr(LAD, 1, 1) == 'E', .(LAD)])[!LAD %in% y[, LAD]][order(LAD)]
 ym[, CTY := gsub('E060', 'E069', LAD)]
@@ -205,14 +234,15 @@ wls <- build_lookups_table('OA', 'PCS', filter_country = 'W', save_results = TRU
 message('Processing [OA=>PCS] for Northern Ireland...')
 nie <- build_lookups_table('OA', 'PCS', filter_country = 'N', save_results = TRUE)
 
-## E: build from postcodes table using OA as base, then complete using old 2011 lookups from ONS
+## E: build from postcodes table using OA as base, then using old 2011 lookups from ONS to fill gaps
 message('Processing [OA=>PCS] for England...')
 eng <- build_lookups_table('OA', 'PCS', filter_country = 'E', save_results = TRUE)
-y <- uk[CTRY == 'ENG', .(OA)]
-eng <- eng[y, on = 'OA'][, .(OA, PCS)]
-y <- fread(file.path(lkps_path, 'OA11_PCDS11_EW_LU.csv'), select = 1:2, col.names = c('OA', 'PCS'))
-y <- y[ OA %in% eng[is.na(PCS), OA] ]
-eng <- rbindlist(list( eng[!is.na(PCS)], y ))
+y <- fread(
+        file.path(lkps_path, 'OA11_PCDS11_EW_LU.csv'),
+        select = 1:2,
+        col.names = c('OA', 'PCS')
+)
+eng <- rbindlist(list( eng[, 1:2], y[OA %in% uk[CTRY == 'ENG'][!OA %in% eng[, OA], OA] ] ))
 
 ## S: build from postcodes table using OA as base, then complete using PIP with OA coords and PCS boundaries
 # to stay updated, download latest boundaries @ https://www.nrscotland.gov.uk/statistics-and-data/geography/nrs-postcode-extract
@@ -220,26 +250,22 @@ message('Processing [OA=>PCS] for Scotland...')
 sco <- build_lookups_table('OA', 'PCS', filter_country = 'S', save_results = TRUE)
 y <- uk[CTRY == 'SCO', .(OA)]
 sco <- sco[y, on = 'OA'][, .(OA, PCS)]
-
 bnd.pcs <- readOGR(bnd_path, 'SC_PCS')
 bnd.oa <- readOGR(bnd_path, 'SC')
-y <- setDT( cbind( bnd.oa$code, over(gCentroid(bnd.oa, byid = TRUE), bnd.pcs) ) )
-setnames(y, c('OA', 'PCS'))
-y[, PCS := as.character(PCS)]
+y <- data.table( 'OA' = as.character(bnd.oa$code), 'PCS' = as.character(over(gCentroid(bnd.oa, byid = TRUE), bnd.pcs)[, 2]) )
 y[nchar(PCS) == 4, PCS := gsub(' ', '  ', PCS)]
 y[nchar(PCS) == 6, PCS := gsub(' ', '', PCS)]
-
 y <- y[ OA %in% sco[is.na(PCS), OA], .(OA, PCS) ]
 sco <- rbindlist(list( sco[!is.na(PCS)], y ))
 
 # bind together all four countrioes
 message('Processing [OA=>PCS] for UK...')
-y <- rbindlist(list(eng, wls[, 1:2], sco, nie[, 1:2]))
+y <- rbindlist(list(eng[, 1:2], wls[, 1:2], sco, nie[, 1:2]))
 
 # merge with previous uk by OA
-uk <- y[, 1:2][uk, on = 'OA']
+uk <- y[uk, on = 'OA']
 
-# check totals CTRY: (for FEB-19) UK 9863, E 8177, W 529, S 944, N 234
+# check totals CTRY: (for MAY-19) UK 9882, E 8142, W 528, S 999, N 234
 get_summary_area('PCS')
 
 ### 2- PCS > PCD ------------------------------------------------------------------------------------------------------------------------------------
@@ -291,7 +317,7 @@ if(x > 0){
     message('There still are ', x, ' districts missing. Need to be looked at manually! See the csv files I am currently processing and saving...')
     x <- data.table( miss_PCD = character(0), miss_OA = character(0), miss_PCS = character(0), N_OAs = integer(0), lkp_PCD = character(0) )
     for(x0 in pcd_miss[found == 0]$PCD)
-        x <- rbindlist(list( x, data.table( x0, unique(pc[PCD == x0, .N, .(OA, PCS)])[order(-N)], NA )))
+        x <- rbindlist(list( x, data.table( x0, unique(pc[PCD == x0, .N, .(OA, PCS)])[order(-N)], NA )), use.names = FALSE)
     x[, lkp_PCD := sapply(miss_OA, function(x) uk[OA == x, PCD])]
     write.csv(x, file.path(lkps_path, 'pcd_missing'), row.names = FALSE)
 }
@@ -320,7 +346,11 @@ get_summary_area('PCA')
 
 ### LSOA > TTWA ---------------------------------------------------------------------------------------------------------------------------
 message('Processing [LSOA=>TTWA] for UK...')
-y <- fread(file.path(lkps_path, 'LSOA11_TTWA11_UK_LU.csv'), select = c(1, 3), col.names = c('LSOA', 'TTWA'))
+y <- fread(
+        file.path(lkps_path, 'LSOA11_TTWA11_UK_LU.csv'), 
+        select = c(1, 3), 
+        col.names = c('LSOA', 'TTWA')
+)
 # merge with previous 
 uk <- y[, 1:2][uk, on = 'LSOA']
 # check totals TTWA: UK : E 149, W 18, S 45, N 10, K 6
@@ -371,7 +401,11 @@ y <- build_lookups_table('OA', 'PAR', save_results = TRUE)
 uk <- y[, 1:2][uk, on = 'OA']
 
 # load missing OA>PAR associations using the last available from ONS
-y <- fread(file.path(lkps_path, 'OA11_PAR11_LAD11_EW_LU.csv'), select = 1:2, col.names = c('OA', 'PAR'))
+y <- fread(
+        file.path(lkps_path, 'OA11_PAR11_LAD11_EW_LU.csv'), 
+        select = 1:2, 
+        col.names = c('OA', 'PAR')
+)
 # update only Eng NA 
 uk[is.na(PAR), PAR := y[.SD[['OA']], .(PAR), on = 'OA'] ]
 uk[nchar(PAR) == 0, PAR := NA]
@@ -440,7 +474,7 @@ uk <- y[, 1:2][uk, on = 'LAD']
 ### OA > STP ------------------------------------------------------------------------------------------------------------------------------
 message('Processing [LSOA=>STP] for England...')
 # build from 'postcodes' table using 'OA' as base
-y <- build_lookups_table('LSOA', 'STP', save_results = TRUE)
+y <- build_lookups_table('LSOA', 'STP', filter_country = 'E', save_results = TRUE)
 # merge with previous uk by OA
 uk <- y[, 1:2][uk, on = 'LSOA']
 uk[STP == '', STP := NA]
@@ -459,7 +493,7 @@ uk[is.na(CCG), CCG := 'S03000043']
 get_summary_area('CCG')
 
 ### CCG > NHSO ------------------------------------------------------------------------------------------------------------------------------
-message('Processing [CCG=>NHSO] for E...')
+message('Processing [CCG=>NHSO] for England...')
 # build from 'postcodes' table using 'OA' as base
 y <- build_lookups_table('CCG', 'NHSO', filter_country = 'E', save_results = TRUE)
 # merge with previous uk by CCG
@@ -468,27 +502,13 @@ uk <- y[, 1:2][uk, on = 'CCG']
 get_summary_area('NHSO')
 
 ### NHSO > NHSR ------------------------------------------------------------------------------------------------------------------------------
-message('Processing [NHSO=>NHSR] for E...')
+message('Processing [NHSO=>NHSR] for England...')
 # build from 'postcodes' table using 'OA' as base
 y <- build_lookups_table('NHSO', 'NHSR', filter_country = 'E', save_results = TRUE)
 # merge with previous uk by NHSO
 uk <- y[, 1:2][uk, on = 'NHSO']
 # check totals NHSO: UK , E , W NA, S NA, N NA
-get_summary_area('NHSO')
-
-#### F) Indices --------------------------------------------------------------------------------------------------------------------------
-
-message('Adding OAC...')
-dbc <- dbConnect(MySQL(), group = 'geouk')
-y <- data.table(dbGetQuery(dbc, "SELECT location_id AS OA, value AS OAC FROM indices WHERE idx = 1"))
-dbDisconnect(dbc)
-uk <- y[uk, on = 'OA']
-
-message('Adding RUC...')
-dbc <- dbConnect(MySQL(), group = 'geouk')
-y <- data.table(dbGetQuery(dbc, "SELECT location_id AS OA, value AS RUC FROM indices WHERE idx = 2"))
-dbDisconnect(dbc)
-uk <- y[uk, on = 'OA']
+get_summary_area('NHSR')
 
 
 #### G) Missing codes ---------------------------------------------------------------------------------------------------------------------
@@ -500,12 +520,6 @@ fill_missing_oas('PCON', 'MSOA')
 message('Replacing missing WARD from similar LSOA, then MSOA...')
 fill_missing_oas('WARD', 'LSOA')
 fill_missing_oas('WARD', 'MSOA')
-
-message('Replacing missing OAC from similar LSOA...')
-fill_missing_oas('OAC', 'LSOA')
-
-message('Replacing missing RUC from similar LSOA...')
-fill_missing_oas('RUC', 'LSOA')
 
 
 ### save results in database ----------------------------------------------------------------------------------------------------------------

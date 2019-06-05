@@ -7,7 +7,7 @@ pkg <- c('data.table', 'fst', 'RMySQL')
 invisible(lapply(pkg, require, character.only = TRUE))
 
 # set constants 
-data_path <- file.path(Sys.getenv('PUB_PATH'), 'datasets', 'geography', 'uk')
+data_path <- file.path(Sys.getenv('PUB_PATH'), 'datasets', 'uk', 'geography')
 
 # load data 
 oas <- read.fst(file.path(data_path, 'output_areas'), as.data.table = TRUE)
@@ -15,7 +15,7 @@ dbc <- dbConnect(MySQL(), group = 'geouk')
 hrc <- data.table( dbGetQuery(dbc, "SELECT hierarchy_id, child_type, parent_type FROM hierarchies WHERE child_type NOT IN ('OA', 'WPZ')") )
 dbDisconnect(dbc)
 
-# loop over all hierarchies <> OA
+# loop over all hierarchies <> OA, WPZ
 lkps <- data.table(hierarchy_id = integer(0), child_id = character(0), parent_id = character(0))
 for(idx in 1:nrow(hrc)){
     message('Processing hierachy ', hrc[idx, 2], ' to ', hrc[idx, 3])

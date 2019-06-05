@@ -1,17 +1,17 @@
-################################################################################
-# UK GEOGRAPHY * 52 - BOUNDARIES: add centroids and measures to output_areas
-################################################################################
+##############################################################################
+# UK GEOGRAPHY * 52 - BOUNDARIES: add centroids and measures to output areas #
+##############################################################################
 
 # load packages -----------------------------------------------------------------------------------------------------------------
 pkg <- c('data.table', 'fst', 'maptools', 'rgdal', 'rgeos', 'RMySQL', 'sp')
 invisible(lapply(pkg, require, character.only = TRUE))
 
 # set constants ------------------------------------------------------------------------------------------------
-bnd_path <- file.path(Sys.getenv('PUB_PATH'), 'ext-data/geography_uk/boundaries')
-data_out <- file.path(Sys.getenv('PUB_PATH'), '/usr/local/share/data/dataframes/geography_uk')
-gb_grid  <- '+init=epsg:27700'
-ni_grid  <- '+init=epsg:29902'
-latlong <- '+init=epsg:4326'
+bnd_path <- file.path(Sys.getenv('PUB_PATH'), 'ext_data', 'uk', 'geography', 'boundaries', 'OA')
+data_out <- file.path(Sys.getenv('PUB_PATH'), 'datasets', 'uk', 'geography')
+gb_grid  <- '+init=epsg:27700' # OSGB 1936 / British National Grid (projected)
+ni_grid  <- '+init=epsg:29902' # TM65 / Irish Grid -- Ireland (projected)
+latlong <- '+init=epsg:4326'   # WGS84 - World Geodetic System 1984 (unprojected)
 
 # define functions ----------------------------------------------------------------------------------------------------------
 get_measures <- function(shp, loca_id, is.ni = FALSE){
@@ -173,6 +173,11 @@ y[, c('wx_lon', 'wy_lat', 'x_lon', 'y_lat', 'perimeter', 'area') := NULL]
 y <- y[ uk1[uk2, on = 'OA'], on = 'OA']
 
 # save as fst 
+setorderv(y, c('CTRY', 'RGN', 'OA'))
+yx <- y[, .N, .(CTRY, RGN)]
+yx[, n2 := cumsum(N)][, n1 := shift(n2, 1L, type = 'lag') + 1][is.na(n1), n1 := 1]
+setcolorder(yx, c('CTRY', 'RGN', 'N', 'n1', 'n2'))
+write.fst(yx, file.path(data_out, 'output_areas.idx'))
 write.fst(y, file.path(data_out, 'output_areas'))
 
 ## Clean & Exit -----------------------------------------------------------------------------------------------------------------

@@ -1,19 +1,12 @@
 ##################################################
 # UK GEOGRAPHY * 01 - Create database and tables #
 ##################################################
-# You need to provide the following CSV in in_path:
-#  - hierarchies
-#  - location_types
-#  - OAC, WZC and RUC, codes and names 
-#  - mosaic groups and types, codes and names
 
 # Load packages -----------------------------------------------------------------------------------------------------------------
-pkg <- c('data.table', 'fst', 'RMySQL')
-invisible( lapply(pkg, require, char = TRUE) )
+library(RMySQL)
 
 # Set paths ---------------------------------------------------------------------------------------------------------------------
-in_path <- file.path(Sys.getenv('PUB_PATH'), 'ancillaries', 'geography', 'uk')
-out_path <- file.path(Sys.getenv('PUB_PATH'), 'datasets', 'geography', 'uk')
+data_path <- file.path(Sys.getenv('PUB_PATH'), 'ancillaries', 'uk', 'geography')
 
 # Create database ---------------------------------------------------------------------------------------------------------------
 dbc = dbConnect(MySQL(), group = 'dataOps')
@@ -74,19 +67,6 @@ strSQL <- "
         INDEX (usertype),
         INDEX (mosaic_type)
 
-    ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ROW_FORMAT=FIXED
-"
-dbSendQuery(dbc, strSQL)
-
-# INDICES -----------------------------------------------------------------------------------------------------------------------
-strSQL <- "
-    CREATE TABLE indices (
-        idx TINYINT(3) UNSIGNED NOT NULL COMMENT '1- OAC, 2- RUC, 3- IMD, 4- HI',
-        location_id CHAR(9) NOT NULL,
-        value MEDIUMINT(8) UNSIGNED NOT NULL,
-        PRIMARY KEY (location_id, idx),
-        INDEX (location_id),
-        INDEX (idx)
     ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ROW_FORMAT=FIXED
 "
 dbSendQuery(dbc, strSQL)
@@ -238,13 +218,13 @@ dbSendQuery(dbc, strSQL)
 strSQL = "
     CREATE TABLE distances (
         location_type CHAR(4) NOT NULL,
-        location_a CHAR(9) NOT NULL,
-        location_b CHAR(9) NOT NULL,
+        location_ida CHAR(9) NOT NULL,
+        location_idb CHAR(9) NOT NULL,
         distance MEDIUMINT(7) UNSIGNED NOT NULL 
             COMMENT 'Vincenty (ellipsoid) great circle distance, see http://www.movable-type.co.uk/scripts/latlong-vincenty.html',
         INDEX (location_type),
-        INDEX (location_a),
-        INDEX (location_b)
+        INDEX (location_ida),
+        INDEX (location_idb)
     ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ROW_FORMAT=FIXED;
 "
 dbSendQuery(dbc, strSQL)
@@ -287,9 +267,8 @@ strSQL = "
     ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ROW_FORMAT=FIXED;
 "
 dbSendQuery(dbc, strSQL)
-y <- read.csv(file.path(in_path, 'hierarchies.csv'))
+y <- read.csv(file.path(data_path, 'hierarchies.csv'))
 dbWriteTable(dbc, 'hierarchies', y, row.names = FALSE, append = TRUE)
-write.fst(y, file.path(out_path, 'hierarchies'))
 
 # LOCATION_TYPES ----------------------------------------------------------------------------------------------------------------
 strSQL = "
@@ -305,190 +284,8 @@ strSQL = "
     ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ROW_FORMAT=FIXED;
 "
 dbSendQuery(dbc, strSQL)
-y <- read.csv(file.path(in_path, 'location_types.csv'))
+y <- read.csv(file.path(data_path, 'location_types.csv'))
 dbWriteTable(dbc, 'location_types', y, row.names = FALSE, append = TRUE)
-write.fst(y, file.path(out_path, 'location_types'))
-
-# OAC ---------------------------------------------------------------------------------------------------------------------------
-strSQL <- "
-    CREATE TABLE oac (
-    	subgroup_id SMALLINT(3) UNSIGNED NOT NULL,
-    	subgroup_code CHAR(3) NOT NULL,
-    	subgroup_desc CHAR(50) NOT NULL,
-    	group_id TINYINT(2) UNSIGNED NOT NULL,
-    	group_code CHAR(2) NOT NULL,
-    	group_desc CHAR(40) NOT NULL,
-    	supergroup_id TINYINT(1) UNSIGNED NOT NULL,
-    	supergroup_desc CHAR(30) NOT NULL,
-    	PRIMARY KEY (subgroup_id),
-    	UNIQUE INDEX subgroup_code (subgroup_code),
-    	INDEX group_id (group_id),
-    	INDEX group_code (group_code),
-    	INDEX supergroup_id (supergroup_id)
-    ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ROW_FORMAT=FIXED
-"
-dbSendQuery(dbc, strSQL)
-y <- fread(file.path(in_path, 'oac.csv'))
-dbWriteTable(dbc, 'oac', y, row.names = FALSE, append = TRUE)
-cols <- c('subgroup_code', 'group_code')
-y[, (cols) := lapply(.SD, as.factor), .SDcols = cols]
-write.fst(y, file.path(out_path, 'oac'))
-
-# LOCATIONS_OACS -------------------------------------------------------------------------------------------------
-strSQL = "
-    CREATE TABLE locations_oacs (
-		location_type char(4) NOT NULL COLLATE 'utf8_unicode_ci' COMMENT 'see location_types.location_type',
-        location_id CHAR(9) NOT NULL COLLATE 'utf8_unicode_ci' COMMENT 'If location_type = <OA> see output_areas.OA, else see locations.location_id',
-        oac_class CHAR(1) NOT NULL COMMENT 'Su(B)group, (G)roup, Su(P)ergroup',
-        oac_id TINYINT(3) UNSIGNED NOT NULL 
-            COMMENT 'If oac_class = <B> see oac.subgroup_id, if oac_class = <G> see oac.group_id, if oac_class = <P> see oac.supergroup_id',
-        count_pc TINYINT(3) UNSIGNED NOT NULL COMMENT 'Number of postcodes in the specified area assuming the specified mosaic class',
-        pct_pc DECIMAL(5,2) UNSIGNED NOT NULL 
-            COMMENT
-			    'Percentage of postcodes in the specified area assuming the specified OAC class, 
-			    where the reference total is the number of postcodes in the area with known OAC class',
-        PRIMARY KEY (location_id, oac_class, oac_id),
-        INDEX (location_type),
-        INDEX (location_id),
-        INDEX (oac_class),
-        INDEX (oac_id)
-    ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ROW_FORMAT=FIXED
-"
-dbSendQuery(dbc, strSQL)
-
-# WZC ---------------------------------------------------------------------------------------------------------------------------
-strSQL <- "
-    CREATE TABLE wzc (
-    	sgroup_id TINYINT(1) UNSIGNED NOT NULL,
-    	sgroup_code CHAR(1) NOT NULL,
-    	sgroup_desc CHAR(30) NOT NULL,
-    	group_id TINYINT(2) UNSIGNED NOT NULL,
-    	group_code CHAR(2) NOT NULL,
-    	group_desc CHAR(60) NOT NULL,
-    	PRIMARY KEY (group_id),
-    	UNIQUE INDEX group_code (group_code),
-    	INDEX sgroup_id (sgroup_id),
-    	INDEX sgroup_code (sgroup_code)
-    ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ROW_FORMAT=FIXED
-"
-dbSendQuery(dbc, strSQL)
-y <- fread(file.path(in_path, 'wzc.csv'))
-dbWriteTable(dbc, 'wzc', y, row.names = FALSE, append = TRUE)
-cols <- c('sgroup_code', 'group_code')
-y[, (cols) := lapply(.SD, as.factor), .SDcols = cols]
-write.fst(y, file.path(out_path, 'wzc'))
-
-# LOCATIONS_WZCs -------------------------------------------------------------------------------------------------
-strSQL = "
-    CREATE TABLE locations_wzcs (
-		location_type char(4) NOT NULL COLLATE 'utf8_unicode_ci' COMMENT 'see location_types.location_type',
-        location_id CHAR(9) NOT NULL COLLATE 'utf8_unicode_ci' COMMENT 'If location_type = <OA> see output_areas.OA, else see locations.location_id',
-        wzc_class CHAR(1) NOT NULL COMMENT '(S)upergroup, (G)roup',
-        wzc_id TINYINT(3) UNSIGNED NOT NULL 
-            COMMENT 'If wzc_class = <G> see wzc.group_id, if wzc_class = <S> see wzc.supergroup_id',
-        count_pc TINYINT(3) UNSIGNED NOT NULL COMMENT 'Number of zones in the specified area assuming the specified class',
-        pct_pc DECIMAL(5,2) UNSIGNED NOT NULL 
-            COMMENT
-			    'Percentage of zones in the specified area assuming the specified class, 
-			    where the reference total is the number of zones in the area with known class',
-        PRIMARY KEY (location_id, wzc_class, wzc_id),
-        INDEX (location_type),
-        INDEX (location_id),
-        INDEX (wzc_class),
-        INDEX (wzc_id)
-    ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ROW_FORMAT=FIXED
-"
-dbSendQuery(dbc, strSQL)
-
-# RUC ---------------------------------------------------------------------------------------------------------------------------
-strSQL <- "
-    CREATE TABLE ruc (
-    	area_id TINYINT(2) UNSIGNED NOT NULL,
-    	area CHAR(2) NOT NULL,
-    	name CHAR(50) NOT NULL,
-    	description CHAR(250) NOT NULL,
-    	rank CHAR(2) NOT NULL,
-    	country CHAR(2) NOT NULL,
-    	PRIMARY KEY (area_id),
-    	UNIQUE INDEX area_type (area)
-    ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ROW_FORMAT=FIXED
-"
-dbSendQuery(dbc, strSQL)
-y <- fread(file.path(in_path, 'ruc.csv'))
-dbWriteTable(dbc, 'ruc', y, row.names = FALSE, append = TRUE)
-cols <- c('area', 'name', 'rank')
-y[, (cols) := lapply(.SD, as.factor), .SDcols = cols]
-write.fst(y, file.path(out_path, 'ruc'))
-
-# MOSAIC: GROUPS --------------------------------------------------------------------------------------------
-strSQL <- "
-    CREATE TABLE mosaic_groups (
-    	group_id TINYINT(2) UNSIGNED NOT NULL,
-    	code CHAR(1) NOT NULL COLLATE 'utf8_unicode_ci',
-    	name CHAR(20) NOT NULL COLLATE 'utf8_unicode_ci',
-    	code_name CHAR(21) NOT NULL COLLATE 'utf8_unicode_ci',
-    	description CHAR(100) NOT NULL COLLATE 'utf8_unicode_ci',
-    	long_description VARCHAR(500) NOT NULL COLLATE 'utf8_unicode_ci',
-    	postcodes MEDIUMINT(8) UNSIGNED NOT NULL,
-    	population MEDIUMINT(8) UNSIGNED NOT NULL,
-    	households MEDIUMINT(8) UNSIGNED NOT NULL,
-    	PRIMARY KEY (group_id),
-    	UNIQUE INDEX code (code)
-    ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ROW_FORMAT=FIXED
-"
-dbSendQuery(dbc, strSQL)
-y <- fread(file.path(in_path, 'mosaic_groups.csv'))
-dbWriteTable(dbc, 'mosaic_groups', y, row.names = FALSE, append = TRUE)
-cols <- c('code', 'name', 'code_name')
-y[, (cols) := lapply(.SD, as.factor), .SDcols = cols]
-write.fst(y, file.path(out_path, 'mosaic_groups'))
-
-# MOSAIC: TYPES ---------------------------------------------------------------------------------------------
-strSQL <- "
-    CREATE TABLE mosaic_types (
-    	type_id TINYINT(3) UNSIGNED NOT NULL,
-    	code CHAR(3) NOT NULL COLLATE 'utf8_unicode_ci',
-    	name CHAR(30) NOT NULL COLLATE 'utf8_unicode_ci',
-    	code_name CHAR(33) NOT NULL COLLATE 'utf8_unicode_ci',
-    	code_exp TINYINT(3) UNSIGNED NOT NULL,
-    	description CHAR(125) NOT NULL COLLATE 'utf8_unicode_ci',
-    	group_id TINYINT(2) UNSIGNED NOT NULL,
-    	group_code CHAR(1) NOT NULL COLLATE 'utf8_unicode_ci',
-    	postcodes MEDIUMINT(8) UNSIGNED NOT NULL,
-    	population MEDIUMINT(8) UNSIGNED NOT NULL,
-    	households MEDIUMINT(8) UNSIGNED NOT NULL,
-    	PRIMARY KEY (type_id),
-    	UNIQUE INDEX code (code),
-    	INDEX group_code (group_code),
-    	INDEX group_id (group_id)
-    ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ROW_FORMAT=FIXED
-"
-dbSendQuery(dbc, strSQL)
-y <- fread(file.path(in_path, 'mosaic_types.csv'))
-dbWriteTable(dbc, 'mosaic_types', y, row.names = FALSE, append = TRUE)
-cols <- c('code', 'name', 'code_name', 'group_code')
-y[, (cols) := lapply(.SD, as.factor), .SDcols = cols]
-write.fst(y, file.path(out_path, 'mosaic_types'))
-
-# LOCATIONS_MOSAICS -------------------------------------------------------------------------------------------------
-strSQL = "
-    CREATE TABLE locations_mosaics (
-		location_type char(4) NOT NULL COLLATE 'utf8_unicode_ci' COMMENT 'see location_types.location_type',
-        location_id CHAR(9) NOT NULL COLLATE 'utf8_unicode_ci' COMMENT 'If location_type = <OA> see output_areas.OA, else see locations.location_id',
-        mosaic_class CHAR(1) NOT NULL COMMENT '(T)ype or (G)roup',
-        mosaic_id TINYINT(3) UNSIGNED NOT NULL COMMENT 'If mosaic_class = <G> see mosaic_groups.group_id, If mosaic_class = <T> see mosaic_types.type_id',
-        count_pc TINYINT(3) UNSIGNED NOT NULL COMMENT 'Number of postcodes in the specified area assuming the specified mosaic class',
-        pct_pc DECIMAL(5,2) UNSIGNED NOT NULL COMMENT
-			'Percentage of postcodes in the specified area assuming the specified mosaic class, 
-			 where the reference total is the number of postcodes in the area with known mosaic class',
-        PRIMARY KEY (location_id, mosaic_class, mosaic_id),
-        INDEX (location_type),
-        INDEX (location_id),
-        INDEX (mosaic_class),
-        INDEX (mosaic_id)
-    ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ROW_FORMAT=FIXED
-"
-dbSendQuery(dbc, strSQL)
 
 # CLEAN & EXIT ------------------------------------------------------------------------------------------------------------------
 dbDisconnect(dbc)

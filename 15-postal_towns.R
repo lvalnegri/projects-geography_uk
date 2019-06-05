@@ -7,7 +7,7 @@ pkg <- c('data.table', 'htmltab', 'RMySQL', 'rvest')
 invisible(lapply(pkg, require, character.only = TRUE))
 
 # set constants -----------------------------------------------------------------------------------------------------------------
-data_path <- file.path(Sys.getenv('PUB_PATH'), 'ext_data', 'geography', 'uk')
+data_path <- file.path(Sys.getenv('PUB_PATH'), 'ext_data', 'uk', 'geography')
 from_scratch <- TRUE
 
 # load data ---------------------------------------------------------------------------------------------------------------------
@@ -27,7 +27,7 @@ if(from_scratch){
     pca[, `:=`(PCA = trimws(gsub('postcode area', '', PCA)), name = trimws(gsub('postcode area', '', name)))]
     fwrite(pca, file.path(data_path, 'locations', 'PCA.csv'), row.names = FALSE)
     
-    # download postal towns PCT -----------------------------------------------------------------------------------------------------
+    # download postal towns PCT -------------------------------------------------------------------------------------------------
     url_pref <- 'https://www.postcodes-uk.com/'
     pcdt <- data.table('PCD' = character(0), PCT = character(0))
     for(idx in 1:nrow(pca)){
@@ -44,7 +44,7 @@ if(from_scratch){
     }
     pcdt[, `:=`(PCD = trimws(gsub('postcode', '', PCD)), PCT = trimws(gsub('postcode', '', PCT)))]
     
-    # save dataset to csv file in lookups ------------------------------------------------------------------------------------
+    # save dataset to csv file in lookups ---------------------------------------------------------------------------------------
     fwrite(pcdt, file.path(data_path, 'lookups', 'PCDT.csv'))
     
 }
@@ -57,10 +57,13 @@ miss <- unique(pcdt[is.na(PCT), gsub('[0-9]', '', PCD)])
 pctw <- data.table('PCD' = character(0), PCT = character(0))
 for(idx in 1:length(miss)){
     message('Processing postcode area ', idx, ' out of ', length(miss))
-    y <- data.table( htmltab(paste0(file.path(url_pref, miss[idx]), '_postcode_area'), '//*[@id="mw-content-text"]/div/table[2]') )
+    y <- data.table(htmltab(
+            paste0(file.path(url_pref, miss[idx]), '_postcode_area'), 
+            '//*[@id="mw-content-text"]/div/table[2]'
+    ))
     y <- y[!grepl('non-geo', Coverage)]
     if(ncol(y) == 4) y <- y[!grepl('non-geo', `Local authority area`)]
-    pctw <- rbindlist(list(pctw, y[, 1:2]))
+    pctw <- rbindlist(list(pctw, y[, 1:2]), use.names = FALSE)
     Sys.sleep(1)
 }
 # clean names
@@ -70,7 +73,7 @@ pctw <- pctw[ PCD %in% pcdt[is.na(PCT), PCD]]
 # update first table with missing postal town names
 pcdt[is.na(PCT), PCT := pctw[.SD[['PCD']], .(PCT), on = 'PCD'] ]
 
-# manual table for last update for some districts -------------------------------------------------------
+# manual table for last update for some districts -------------------------------------------------------------------------------
 pctw <- data.table(
     'PCD' = c(paste0('KA', 7:10), paste0('KA', 13:15), paste0('KA', 19:30)),
     'PCT' = c(
@@ -93,19 +96,20 @@ if(nrow(pcdt[is.na(PCT)]))
     warning('CHECK pcd.csv! Not all Post Towns have been found. There still are ', nrow(pcd[is.na(PCT)]), ' missing' )
 
 # download villages -------------------------------------------------------------------------------------------------------------
-
 villages <- data.table('PCD' = character(0), village = character(0))
 url_pref <- 'https://www.postcodes-uk.com/'
 for(idx in 1:nrow(pcd)){
-    message('Processing district ', idx, ' out of ', nrow(pcd))
+    message('Processing district ', pcd[idx, PCD], ' (', idx, ' out of ', nrow(pcd), ')')
     pcd_vlg <- tryCatch(
         read_html(paste0(url_pref, pcd[idx, PCD], '-postcode-district')) %>%
             html_nodes('.places-list a') %>% 
             html_text()
         , error = function(err) character(0)
     )
-    if(length(pcd_vlg) > 0)
-        villages <- rbindlist(list(villages, data.table( pcd[idx, PCD], pcd_vlg ) ) )
+    if(length(pcd_vlg) > 0){
+        villages <- rbindlist(list(villages, data.table( pcd[idx, PCD], pcd_vlg ) ), use.names = FALSE )
+        message(' => Added ', length(pcd_vlg), ' villages (total villages so far: ', nrow(villages), ')')
+    }
     Sys.sleep(runif(1, 0.5, 4))
 }
 y <- pcdt[!(PCD %in% unique(villages$PCD)), .(PCD, PCT)]
