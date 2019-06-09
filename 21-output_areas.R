@@ -358,20 +358,11 @@ get_summary_area('TTWA')
 
 ### OA > WARD -----------------------------------------------------------------------------------------------------------------------------
 message('Processing [OA=>WARD] for UK...')
+# build from 'postcodes' table using 'OA' as base
 y <- build_lookups_table('OA', 'WARD', save_results = TRUE)
 # merge with previous 
 uk <- y[, 1:2][uk, on = 'OA']
-
-# load ENG missing OA>WARD associations using the last available from ONS (see http://geoportal.statistics.gov.uk/datasets?q=OA_WD_LAD_LU)
-y <- fread(
-        file.path(lkps_path, 'Output_Area_to_Ward_to_Local_Authority_District_December_2018_Lookup_in_England_and_Wales.csv'),
-        select = 1:2, 
-        col.names = c('OA', 'WARD')
-)
-# update only Eng NA 
-uk[is.na(WARD), WARD := y[.SD[['OA']], .(WARD), on = 'OA'] ]
-
-# check totals WARD: UK 9100: E 7432, W 852, S 354, N 462
+# check totals WARD: UK 8887: E 7432, W 852, S 354, N 462
 get_summary_area('WARD')
 
 ### OA > CED ------------------------------------------------------------------------------------------------------------------------------
@@ -498,18 +489,36 @@ message('Processing [CCG=>NHSO] for England...')
 y <- build_lookups_table('CCG', 'NHSO', filter_country = 'E', save_results = TRUE)
 # merge with previous uk by CCG
 uk <- y[, 1:2][uk, on = 'CCG']
-# check totals NHSO: UK , E , W NA, S NA, N NA
+
+# @@@@@@@@@@@ FIX FOR MAY 2019 @@@@@@@@@@@@@ 
+uk[NHSO == 'E39000029', NHSO := 'E39000048']
+uk[NHSO == 'E39000030', NHSO := 'E39000045']
+uk[NHSO == 'E39000031', NHSO := 'E39000046']
+uk[NHSO == 'E39000039', NHSO := 'E39000047']
+uk[CTRY == 'NIE', NHSO := 'NIE_NHSO']
+uk[CTRY == 'SCO', NHSO := 'SCO_NHSO']
+uk[CTRY == 'WLS', NHSO := 'WLS_NHSO']
+# @@@@@@@@@@@ @@@@@@@@@@@@@@@@ @@@@@@@@@@@@@
+# check totals NHSO: UK 17, E 14, W 1 (pseudo), S 1 (pseudo), N 1 (pseudo)
 get_summary_area('NHSO')
 
 ### NHSO > NHSR ------------------------------------------------------------------------------------------------------------------------------
 message('Processing [NHSO=>NHSR] for England...')
-# build from 'postcodes' table using 'OA' as base
-y <- build_lookups_table('NHSO', 'NHSR', filter_country = 'E', save_results = TRUE)
-# merge with previous uk by NHSO
-uk <- y[, 1:2][uk, on = 'NHSO']
-# check totals NHSO: UK , E , W NA, S NA, N NA
+nhsr <- data.table(
+    'NHSO' = c(
+        'E39000018', 'E39000026', 'E39000032', 'E39000033', 'E39000037', 'E39000040', 'E39000041',
+        'E39000042', 'E39000043', 'E39000044', 'E39000045', 'E39000046', 'E39000047', 'E39000048',
+        'NIE_NHSO', 'SCO_NHSO', 'WLS_NHSO'
+    ),
+    'NHSR' = c(
+        'E40000003', 'E40000010', 'E40000008', 'E40000008', 'E40000010', 'E40000010', 'E40000005',
+        'E40000005', 'E40000006', 'E40000006', 'E40000008', 'E40000007', 'E40000009', 'E40000009',
+        'NIE_NHSR', 'SCO_NHSR', 'WLS_NHSR'
+    )
+)
+uk <- nhsr[uk, on = 'NHSO']
+# check totals NHSR: UK 10, E 7, W 1 (pseudo), S 1 (pseudo), N 1 (pseudo)
 get_summary_area('NHSR')
-
 
 #### G) Missing codes ---------------------------------------------------------------------------------------------------------------------
 

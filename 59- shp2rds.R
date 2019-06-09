@@ -16,10 +16,11 @@ areas <- c(
   'PCS', 'PCD', 'PCT', 'PCA', 
   'MTC', 'BUA', 'BUAS', 
   'TTWA', 'WARD', 'CED', 'PCON', 'PAR',
-  'PFA', 'STP', 'CCG', 'NHSO', 'NHSR'
+  'PFA', 'STP', 'CCG', 'NHSO', 'NHSR',
+  'WPZ'
 )
-sel_areas <- c('LSOA', 'MSOA', 'LAD', 'CTY', 'RGN', 'CTRY', 'PCS', 'PCD', 'PCT', 'PCA', 'TTWA', 'WARD', 'PCON', 'PAR')
-pct_simplify <- c('s00', paste0('s', 1:5 * 10))
+sel_areas <- c('LSOA', 'MSOA', 'LAD', 'CTY', 'RGN', 'CTRY', 'PCS', 'PCD', 'PCT', 'PCA', 'WARD', 'PCON', 'WPZ')
+pct_simplify <- c('s00', 's05', paste0('s', 1:5 * 10))
 
 # loop over all specified percentages
 for(pct in pct_simplify){

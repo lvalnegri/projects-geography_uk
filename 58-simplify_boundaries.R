@@ -34,7 +34,6 @@ simplify_area <- function(area, keep.pct, bnd_path = file.path(Sys.getenv('PUB_P
         3), '%'
     )
     message('===========================================')
-    rm(y);gc()
 }
 
 areas <- c(
@@ -42,10 +41,11 @@ areas <- c(
     'PCS', 'PCD', 'PCT', 'PCA', 
     'MTC', 'BUA', 'BUAS', 
     'TTWA', 'WARD', 'CED', 'PCON', 'PAR',
-    'PFA', 'STP', 'CCG', 'NHSO', 'NHSR' 
+    'PFA', 'STP', 'CCG', 'NHSO', 'NHSR'
 )
 lapply(areas, simplify_area, 0.50)
 lapply(areas, simplify_area, 0.40)
 lapply(areas, simplify_area, 0.30)
 lapply(areas, simplify_area, 0.20)
 lapply(areas, simplify_area, 0.10)
+lapply(areas, simplify_area, 0.05)

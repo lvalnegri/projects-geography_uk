@@ -90,13 +90,11 @@ library(sf)
 library(fst)
 library(dplyr)    
 library(rmapshaper)
-library(parallel)
 pub_path <- Sys.getenv('PUB_PATH')
 bnd_path <- file.path(pub_path, 'boundaries', 'uk', 'shp')
 
 message('Reading initial WPZ shapefile...')
 shp.uk <- read_sf(file.path(pub_path, 'boundaries', 'uk', 'shp', 's00'), layer = 'WPZ')
-
 rgn <- read.fst(
         file.path(pub_path, 'datasets', 'uk', 'geography', 'workplace_zones'), 
         columns = c('WPZ', 'RGN'), 
@@ -106,19 +104,19 @@ rgn <- read.fst(
 for(p in c('05', seq(10, 50, 10))){
     message('=============================================')
     message('Simplifying ', as.numeric(p), '% by region...')
-    y <- mclapply(
-                levels(rgn$RGN), 
-                function(x)
-                    shp.uk %>% 
-                      filter(id %in% rgn[RGN == x, WPZ]) %>% 
-                      ms_simplify(keep = as.numeric(p)/100, keep_shapes = TRUE),
-                mc.cores = detectCores(logical = FALSE)
-    )
+    shp_area <- list()
+    for(r in 1:length(levels(rgn$RGN))){
+        message(' + Simplifying region ', levels(rgn$RGN)[r], '...')
+        y <- shp.uk %>% 
+              filter(id %in% rgn[RGN == levels(rgn$RGN)[r], WPZ]) %>% 
+              ms_simplify(keep = as.numeric(p)/100, keep_shapes = TRUE)
+        shp_area[[r]] <- y
+    }
     message('Binding regions together...')
-    y <- do.call('rbind', y)
+    shp_area <- do.call('rbind', shp_area)
     message('Saving...')
     bnd_ppath <- paste0(bnd_path, '/s', p)
-    st_write(y, paste0(file.path(bnd_ppath, 'WPZ'), '.shp'), delete_layer = TRUE)
+    st_write(shp_area, paste0(file.path(bnd_ppath, 'WPZ'), '.shp'), delete_layer = TRUE)
 }
 message('=============================================')
 

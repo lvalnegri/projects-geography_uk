@@ -73,6 +73,20 @@ wls <- build_lookups_table('WPZ', 'MSOA', filter_country = 'W')
 uk <- rbindlist(list( eng, sco, wls))[, 1:2]
 uk <- unique(oas[CTRY != 'NIE', .(MSOA, LAD, CTY, RGN, CTRY)])[uk, on = 'MSOA']
 
+# find missing WPZ (for ENG) using terminated postcodes
+wpz.ms <- sf::read_sf(file.path(pub_path, 'boundaries', 'uk', 'shp', 's00'), layer = 'WPZ') %>% 
+            filter(substr(id, 1, 1) == 'E') %>% 
+            filter(!id %in% uk$WPZ) %>% 
+            pull(id)
+pc <- read_fst(file.path(data_path, 'postcodes'), columns = c('postcode', 'is_active', 'WPZ', 'MSOA'), as.data.table = TRUE)
+wpz.ms <- pc[is_active == 0 & WPZ %in% wpz.ms][, .N, .(WPZ, MSOA)][order(-N)][, .SD[1], WPZ][, .(WPZ, MSOA)]
+wpz.ms <- unique(oas[CTRY != 'NIE', .(MSOA, LAD, CTY, RGN, CTRY)])[wpz.ms, on = 'MSOA']
+uk <- rbindlist(list( uk, wpz.ms ))
+
+# ===> there should be the zone id "E33004420" still missing
+if(nrow(uk[WPZ == 'E33004420'])==0)
+    uk <- rbindlist(list( uk, c('E02006902', unique(uk[MSOA == 'E02006902', .(LAD, CTY, RGN, CTRY)]), 'E33004420') ))
+
 # WPZ ==> LAD (N)
 nie <- build_lookups_table('WPZ', 'LAD', filter_country = 'N', save_results = TRUE)
 nie <- unique(oas[CTRY == 'NIE', .(LAD, CTY, RGN, CTRY)])[nie[, 1:2], on = 'LAD'][, MSOA := NA]
