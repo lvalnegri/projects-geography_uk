@@ -182,6 +182,8 @@ write.fst(y, file.path(data_out, 'output_areas'))
 
 ## Clean & Exit -----------------------------------------------------------------------------------------------------------------
 file.remove('boundaries.zip')
+system('rm OutputArea2011_PWC.*')
+system('rm SA2011.*')
 rm(list = ls())
 gc()
 
