@@ -2,74 +2,72 @@
 # UK GEOGRAPHY * 01 - Create database and tables #
 ##################################################
 
-# Load packages -----------------------------------------------------------------------------------------------------------------
-library(RMySQL)
+# preliminaries -----------------------------------------------------------------------------------------------------------------
+lapply(c('popiFun', 'data.table', 'fst'), require, char = TRUE)
+in_path <- file.path(pub_path, 'ancillaries', 'uk', 'geography')
+dbname <- 'geography_uk'
 
-# Set paths ---------------------------------------------------------------------------------------------------------------------
-data_path <- file.path(Sys.getenv('PUB_PATH'), 'ancillaries', 'uk', 'geography')
-
-# Create database ---------------------------------------------------------------------------------------------------------------
-dbc = dbConnect(MySQL(), group = 'dataOps')
-dbSendQuery(dbc, 'DROP DATABASE IF EXISTS geography_uk')
-dbSendQuery(dbc, 'CREATE DATABASE geography_uk')
-dbDisconnect(dbc)
-
-# Connect to database -----------------------------------------------------------------------------------------------------------
-dbc = dbConnect(MySQL(), group = 'geouk')
+# create database ---------------------------------------------------------------------------------------------------------------
+create_db(dbname)
 
 # POSTCODES ---------------------------------------------------------------------------------------------------------------------
-strSQL <- "
-    CREATE TABLE postcodes (
+x <- "
+    postcode CHAR(7) NOT NULL COMMENT 'postcode in 7-chars format: 4-chars outcode + 3-chars incode',
+    is_active TINYINT(1) UNSIGNED NOT NULL,
+    usertype TINYINT(1) UNSIGNED NOT NULL 
+        COMMENT '0- small user, 1- large user (large means addresses receiving more than 25 items per day)',
+    x_lon DECIMAL(7,6) NOT NULL COMMENT 'longitude of the geometric centroid of the postcode',
+    y_lat DECIMAL(8,6) UNSIGNED NOT NULL COMMENT 'latitude of the geometric centroid of the postcode',
+
+    OA CHAR(9) NOT NULL COMMENT 'Output Area (E00, W00, S00, N00)',
+    LSOA CHAR(9) NOT NULL COMMENT 'Lower Layer Super Output Area (E01, W01, S01, N01)',
+    MSOA CHAR(9) NULL DEFAULT NULL COMMENT 'Middle Layer Super Output Area (E02, W02, S02; England, Wales and Scotland Only)',
+    LAD CHAR(9) NOT NULL COMMENT 'Local Authority District (UA-E06/W06, LAD-E07, MD-E08, LB-E09, CA-S12, DCA-N09)',
+    CTY CHAR(9) NULL DEFAULT NULL COMMENT 'County (C-E10, MC-E11, IOL-E13, plus LAD-E06; England Only)',
+    RGN CHAR(9) NULL DEFAULT NULL COMMENT 'Region (E12; England Only)',
+    CTRY CHAR(1) NOT NULL COMMENT 'Country (E92, W92, S92, N92)',
+
+    PCS CHAR(5) NOT NULL COMMENT 'PostCode Sector: outcode plus 1st digit incode',
+    PCD CHAR(4) NOT NULL COMMENT 'PostCode District: same as outcode',
+    PCA CHAR(2) NOT NULL COMMENT 'PostCode Area: letters only in outcode',
+
+    TTWA CHAR(9) NOT NULL COMMENT 'Travel To Work Area (E30, W22, S22, N12, K01 for overlapping zones)',
+    WARD CHAR(9) NOT NULL COMMENT 'Electoral Ward (E05, W05, S13, N08)',
+    PCON CHAR(9) NOT NULL COMMENT 'Westminster Parliamentary Constituency (E14, W07, S14, N06)',
+    CED CHAR(9) NULL DEFAULT NULL COMMENT 'County Electoral Division (E58; England Only; Partial Coverage)',
+    PAR CHAR(9) NULL DEFAULT NULL COMMENT 'Civil Parish (E04, W04; England and Wales Only; Partial Coverage England Only)',
+
+	BUA CHAR(9) NULL DEFAULT NULL 
+	    COMMENT 'Built-up Area (E34, W37, K05 for overlapping zones; England and Wales Only; Partial Coverage)',
+	BUAS CHAR(9) NULL DEFAULT NULL 
+	    COMMENT 'Built-up Subdivision (E35, W38, K06 for overlapping zones; England and Wales Only; Partial Coverage)',
+	WPZ CHAR(9) NULL DEFAULT NULL COMMENT 'Workplace Zone (E33, W35, S34, N19)',
+
+	PFA CHAR(9) NULL DEFAULT NULL COMMENT 'Police Force Area (E23, W15, S32, N24)',
+	STP CHAR(9) NOT NULL COMMENT 'Sustainability and Transformation Partnership (E54; England Only)',
+	CCG CHAR(9) NOT NULL COMMENT 'Clinical Commissioning Group (E38, W11, S03, ZC)',
+	NHSO CHAR(9) NOT NULL COMMENT 'NHS Local Office (E39; England Only)',
+	NHSR CHAR(9) NOT NULL COMMENT 'NHS Region (E40; England Only)',
 	
-        postcode CHAR(7) NOT NULL COMMENT 'postcode in 7-chars format: 4-chars outcode + 3-chars incode',
-        is_active TINYINT(1) UNSIGNED NOT NULL,
-        usertype TINYINT(1) UNSIGNED NOT NULL 
-            COMMENT '0- small user, 1- large user (large means addresses receiving more than 25 items per day)',
-        x_lon DECIMAL(7,6) NOT NULL COMMENT 'longitude of the geometric centroid of the postcode',
-        y_lat DECIMAL(8,6) UNSIGNED NOT NULL COMMENT 'latitude of the geometric centroid of the postcode',
-        population SMALLINT(5) UNSIGNED NULL COMMENT '',
-        households SMALLINT(5) UNSIGNED NULL COMMENT '',
-        mosaic_type char(3) NULL DEFAULT NULL COLLATE utf8_unicode_ci COMMENT 'see mosaic_types.code',
+	I0 INT UNSIGNED NULL DEFAULT NULL COMMENT 'HexGrid spacing half mile',
+	I1 INT UNSIGNED NULL DEFAULT NULL COMMENT 'HexGrid spacing 1 mile',
+	I2 INT UNSIGNED NULL DEFAULT NULL COMMENT 'HexGrid spacing 2 miles',
+	I3 INT UNSIGNED NULL DEFAULT NULL COMMENT 'HexGrid spacing 3 miles',
+	I4 INT UNSIGNED NULL DEFAULT NULL COMMENT 'HexGrid spacing 4 miles',
+	I5 INT UNSIGNED NULL DEFAULT NULL COMMENT 'HexGrid spacing 5 miles',
+	M0 INT UNSIGNED NULL DEFAULT NULL COMMENT 'HexGrid spacing half kilometre',
+	M1 INT UNSIGNED NULL DEFAULT NULL COMMENT 'HexGrid spacing 1 kilometre',
+	M2 INT UNSIGNED NULL DEFAULT NULL COMMENT 'HexGrid spacing 2 kilometres',
+	M3 INT UNSIGNED NULL DEFAULT NULL COMMENT 'HexGrid spacing 3 kilometres',
+	M4 INT UNSIGNED NULL DEFAULT NULL COMMENT 'HexGrid spacing 4 kilometres',
+	M5 INT UNSIGNED NULL DEFAULT NULL COMMENT 'HexGrid spacing 5 kilometres',
 
-        OA CHAR(9) NOT NULL COMMENT 'Output Area (E00, W00, S00, N00)',
-        LSOA CHAR(9) NOT NULL COMMENT 'Lower Layer Super Output Area (E01, W01, S01, N01)',
-        MSOA CHAR(9) NULL DEFAULT NULL COMMENT 'Middle Layer Super Output Area (E02, W02, S02; England, Wales and Scotland Only)',
-        LAD CHAR(9) NOT NULL COMMENT 'Local Authority District (UA-E06/W06, LAD-E07, MD-E08, LB-E09, CA-S12, DCA-N09)',
-        CTY CHAR(9) NULL DEFAULT NULL COMMENT 'County (C-E10, MC-E11, IOL-E13, plus LAD-E06; England Only)',
-        RGN CHAR(9) NULL DEFAULT NULL COMMENT 'Region (E12; England Only)',
-        CTRY CHAR(1) NOT NULL COMMENT 'Country (E92, W92, S92, N92)',
-
-        PCS CHAR(5) NOT NULL COMMENT 'PostCode Sector: outcode plus 1st digit incode',
-        PCD CHAR(4) NOT NULL COMMENT 'PostCode District: same as outcode',
-        PCA CHAR(2) NOT NULL COMMENT 'PostCode Area: letters only in outcode',
-
-        TTWA CHAR(9) NOT NULL COMMENT 'Travel To Work Area (E30, W22, S22, N12, K01 for overlapping zones)',
-        WARD CHAR(9) NOT NULL COMMENT 'Electoral Ward (E05, W05, S13, N08)',
-        PCON CHAR(9) NOT NULL COMMENT 'Westminster Parliamentary Constituency (E14, W07, S14, N06)',
-        CED CHAR(9) NULL DEFAULT NULL COMMENT 'County Electoral Division (E58; England Only; Partial Coverage)',
-        PAR CHAR(9) NULL DEFAULT NULL COMMENT 'Civil Parish (E04, W04; England and Wales Only; Partial Coverage England Only)',
-
-    	BUA CHAR(9) NULL DEFAULT NULL 
-    	    COMMENT 'Built-up Area (E34, W37, K05 for overlapping zones; England and Wales Only; Partial Coverage)',
-    	BUAS CHAR(9) NULL DEFAULT NULL 
-    	    COMMENT 'Built-up Subdivision (E35, W38, K06 for overlapping zones; England and Wales Only; Partial Coverage)',
-    	WPZ CHAR(9) NULL DEFAULT NULL COMMENT 'Workplace Zone (E33, W35, S34, N19)',
-
-    	PFA CHAR(9) NULL DEFAULT NULL COMMENT 'Police Force Area (E23, W15, S32, N24)',
-    	STP CHAR(9) NOT NULL COMMENT 'Sustainability and Transformation Partnership (E54; England Only)',
-    	CCG CHAR(9) NOT NULL COMMENT 'Clinical Commissioning Group (E38, W11, S03, ZC)',
-    	NHSO CHAR(9) NOT NULL COMMENT 'NHS Local Office (E39; England Only)',
-    	NHSR CHAR(9) NOT NULL COMMENT 'NHS Region (E40; England Only)',
-
-        PRIMARY KEY (postcode),
-        INDEX (OA),
-        INDEX (is_active),
-        INDEX (usertype),
-        INDEX (mosaic_type)
-
-    ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci ROW_FORMAT=FIXED
+    PRIMARY KEY (postcode),
+    INDEX (OA),
+    INDEX (is_active),
+    INDEX (usertype)
 "
-dbSendQuery(dbc, strSQL)
+create_dbtable('postcodes', dbname, x)
 
 # OUTPUT AREAS ------------------------------------------------------------------------------------------------------------------
 strSQL <- "
