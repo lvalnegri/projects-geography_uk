@@ -2,14 +2,18 @@
 # UK GEOGRAPHY * 11 - POSTCODES #
 #################################
 
+# check latest @ https://geoportal.statistics.gov.uk/search?collection=Dataset&sort=-modified&tags=PRD_ONSPD
+url_ons <- 'https://www.arcgis.com/sharing/rest/content/items/7c52dfecf65d4531bb5ed08f4fc2fa6a/data'
+# check latest FULL @ https://geoportal.statistics.gov.uk/search?collection=Dataset&sort=-modified&tags=PRD_NHSPD
+url_nhs <- 'https://www.arcgis.com/sharing/rest/content/items/054714ceec2743c0b59884f5619f4efa/data'
+
 ### load packages ---------------------------------------------------------------------------------------------------------------
-pkg <- c('data.table', 'fst', 'RMySQL', 'tabulizer')
-invisible(lapply(pkg, require, character.only = TRUE))
+pkg <- c('popiFun', 'data.table', 'fst', 'RMySQL', 'tabulizer')
+invisible(lapply(pkg, require, char = TRUE))
 
 ### set constants ---------------------------------------------------------------------------------------------------------------
-pub_path <- Sys.getenv('PUB_PATH')
-ext_path = file.path(pub_path, 'ext_data', 'uk', 'geography')
-dts_path <- file.path(pub_path, 'datasets', 'uk', 'geography')
+ext_path <- file.path(pub_path, 'ext_data', 'uk', 'geography')
+dts_path <- file.path(datauk_path, 'geography')
 
 ### define functions ------------------------------------------------------------------------------------------------------------
 get_file <- function(x, exp_name = 'ONSPD', pc_path = file.path(ext_path, 'postcodes')){
@@ -27,8 +31,7 @@ get_file <- function(x, exp_name = 'ONSPD', pc_path = file.path(ext_path, 'postc
 
 ### LOAD ONSPD ------------------------------------------------------------------------------------------------------------------
 
-# download latest @ http://geoportal.statistics.gov.uk/datasets?q=ONS+Postcode+Directory+(ONSPD)+zip&sort_by=updated_at
-get_file('https://www.arcgis.com/sharing/rest/content/items/5194b0c9d5a042789058609a4435ec7c/data')
+get_file(url_ons)
 
 # load data
 postcodes <- fread(
@@ -73,34 +76,14 @@ postcodes[, PCA := sub('[0-9]', '', substr(postcode, 1, gregexpr("[[:digit:]]", 
 postcodes[, PCD := gsub(' .*', '', substr(postcode, 1, 4)) ]
 postcodes[, PCS := substr(postcode, 1, 5) ]
 
-# load non-geographic PCS. the file is updated Jan and Jul, check PAF website for the correct link www.poweredbypaf.com
-y <- extract_tables('https://www.poweredbypaf.com/wp-content/uploads/2019/02/Jan-2019_current_non-geos-original.pdf')
+# load non-geographic PCS (check if csv file needs updating, only for FEB and AUG issues )
+ng <- read.csv(file.path(ext_path, 'postcodes', 'pcs_non_geo.csv'))
 
-# extract tables with data at the end
-for(idx1 in 1:length(y)) if(nrow(y[[idx1]]) <= 2) break
-for(idx2 in idx1:length(y)) if(nrow(y[[idx2]]) > 2) break
-ng <- NULL
-for(idx in idx2:length(y)) ng <- rbindlist(list(ng, data.table(y[[idx]])), fill = TRUE)
-
-# recode PCS
-ng <- ng[, .(PCS = gsub(' ', '', V2))]
-ng[nchar(PCS) == 4, PCS := paste(substr(PCS, 1, 3), substring(PCS, 4))]
-ng[nchar(PCS) == 3, PCS := paste0(substr(PCS, 1, 2), '  ', substring(PCS, 3))]
-
-# store number of OAs for future check
+# store number of OAs for future check (232.034, 264 OAs are missing from postcodes)
 n_OAs <- unique(postcodes[is_active == 1, .(OA)])[,.N]
 
 # delete postcodes associated with non-geo PCS
 postcodes <- postcodes[!PCS %in% ng$PCS]
-
-# set is_active = 0 for postcodes in AB1, AB2, AB3
-postcodes[PCD %in% c('AB1', 'AB2', 'AB3'), is_active := 0]
-
-# delete postcodes related to non-geographic or post-box only PCS missed in PAF file
-postcodes <- 
-    postcodes[!PCD %in% 
-        c(paste0('BN', 50:52), paste0('CF', 25:30), 'CR90', 'LE21', 'LE41', 'N1P', 'NW1W', 'NW26', 'SE1P', 'SL60', 'ST55')
-    ]
 
 # check total OAs after deletion is still the same
 n_OAs == unique(postcodes[is_active == 1, .(OA)])[,.N]
@@ -150,28 +133,28 @@ postcodes[,
 ]
 
 ### LOAD NHSPD ------------------------------------------------------------------------------------------------------------------
-# download latest @ http://geoportal.statistics.gov.uk/search?q=NHS%20Postcode%20Directory%20UK%20Full
-get_file('https://www.arcgis.com/sharing/rest/content/items/fd3ffbae5dfe4b9db21070486c6a0d64/data', exp_name = 'NHSPD')
+get_file(url_nhs, exp_name = 'NHSPD')
 
 # load data
 nhspd <- fread( 
     file.path(ext_path, 'postcodes', 'NHSPD.csv'), 
     header = FALSE,
     select = c(1, 12, 17, 24), 
-    col.names = c('postcode', 'osgrdind', 'nhsr', 'nhso'), 
+    col.names = c('postcode', 'nhsr', 'nhso'), 
     na.string = ''
 )
 
-# delete non-geographic
-nhspd <- nhspd[osgrdind < 9][, osgrdind := NULL]
 # recode postcode in 7-chars form
 nhspd[, postcode := paste0(substr(postcode, 1, 4), substring(postcode, 6))]
+
 # load NHSO names to change codes from NHS to ONS
 y <- fread(file.path(ext_path, 'locations', 'NHSO.csv'), select = 1:2, col.names = c('NHSO', 'nhso'))
 nhspd <- y[nhspd, on = 'nhso'][, nhso := NULL]
+
 # load NHSR names to change codes from NHS to ONS
 y <- fread(file.path(ext_path, 'locations', 'NHSR.csv'), select = 1:2, col.names = c('NHSR', 'nhsr'))
 nhspd <- y[nhspd, on = 'nhsr'][, nhsr := NULL]
+
 # join with postcodes
 postcodes <- nhspd[postcodes, on = 'postcode']
 
@@ -182,21 +165,16 @@ mosaics <- y[mosaics, on = c(code_exp = 'mosaic_type')]
 postcodes <- mosaics[, .(postcode, mosaic_type = code)][postcodes, on = 'postcode']
 
 ### save results in database ----------------------------------------------------------------------------------------------------
-dbc <- dbConnect(MySQL(), group = 'geouk')
-dbSendQuery(dbc, "TRUNCATE TABLE postcodes")
-dbWriteTable(dbc, 'postcodes', postcodes, row.names = FALSE, append = TRUE)
-pn <- dbGetQuery(dbc, 'SELECT * FROM postcodes LIMIT 0')
-dbDisconnect(dbc)
+dbm_do('geography_uk', 'w', 'postcodes', postcodes)
+pn <- dbm_do('geography_uk', 'q', 'postcodes', strSQL = 'SELECT * FROM postcodes LIMIT 0')
 setcolorder(postcodes, intersect(names(pn), names(postcodes)))
 
-### recode as factors, then save results in fst format --------------------------------------------------------------------------
+### recode as factors, then save results in fst format with index over RGN and LAD ----------------------------------------------
 cols <- colnames(postcodes)
 cols <- cols[which(names(postcodes) == 'OA'):length(cols)]
 postcodes[, (cols) := lapply(.SD, factor), .SDcols = cols]
-write.fst(postcodes, file.path(dts_path, 'postcodes'))
+write_fst_idx('postcodes', c('RGN', 'LAD'), dts_path)
 
 # CLEAN & EXIT ------------------------------------------------------------------------------------------------------------------
 rm(list = ls())
 gc()
-
-
