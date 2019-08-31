@@ -13,7 +13,6 @@ invisible(lapply(pkg, require, char = TRUE))
 
 ### set constants ---------------------------------------------------------------------------------------------------------------
 ext_path <- file.path(pub_path, 'ext_data', 'uk', 'geography')
-dts_path <- file.path(datauk_path, 'geography')
 
 ### define functions ------------------------------------------------------------------------------------------------------------
 get_file <- function(x, exp_name = 'ONSPD', pc_path = file.path(ext_path, 'postcodes')){
@@ -139,7 +138,7 @@ get_file(url_nhs, exp_name = 'NHSPD')
 nhspd <- fread( 
     file.path(ext_path, 'postcodes', 'NHSPD.csv'), 
     header = FALSE,
-    select = c(1, 12, 17, 24), 
+    select = c(1, 17, 24), 
     col.names = c('postcode', 'nhsr', 'nhso'), 
     na.string = ''
 )
@@ -165,7 +164,7 @@ mosaics <- y[mosaics, on = c(code_exp = 'mosaic_type')]
 postcodes <- mosaics[, .(postcode, mosaic_type = code)][postcodes, on = 'postcode']
 
 ### save results in database ----------------------------------------------------------------------------------------------------
-dbm_do('geography_uk', 'w', 'postcodes', postcodes)
+dbm_do('geography_uk', 'w', 'postcodes', postcodes[, -'mosaic_type', with = FALSE])
 pn <- dbm_do('geography_uk', 'q', 'postcodes', strSQL = 'SELECT * FROM postcodes LIMIT 0')
 setcolorder(postcodes, intersect(names(pn), names(postcodes)))
 
@@ -173,7 +172,7 @@ setcolorder(postcodes, intersect(names(pn), names(postcodes)))
 cols <- colnames(postcodes)
 cols <- cols[which(names(postcodes) == 'OA'):length(cols)]
 postcodes[, (cols) := lapply(.SD, factor), .SDcols = cols]
-write_fst_idx('postcodes', c('RGN', 'LAD'), dts_path)
+write_fst_idx('postcodes', c('RGN', 'LAD'), postcodes, geouk_path)
 
 # CLEAN & EXIT ------------------------------------------------------------------------------------------------------------------
 rm(list = ls())
