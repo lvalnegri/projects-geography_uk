@@ -2,15 +2,15 @@
 # UK GEOGRAPHY * 01 - Create database and tables #
 ##################################################
 
-# preliminaries -----------------------------------------------------------------------------------------------------------------
+# preliminaries ---------------------------------
 lapply(c('popiFun', 'data.table', 'fst'), require, char = TRUE)
 in_path <- file.path(pub_path, 'ancillaries', 'uk', 'geography')
 dbname <- 'geography_uk'
 
-# create database ---------------------------------------------------------------------------------------------------------------
+# create database -------------------------------
 create_db(dbname)
 
-# POSTCODES ---------------------------------------------------------------------------------------------------------------------
+# POSTCODES -------------------------------------
 x <- "
     postcode CHAR(7) NOT NULL COMMENT 'postcode in 7-chars format: 4-chars outcode + 3-chars incode',
     is_active TINYINT(1) UNSIGNED NOT NULL,
@@ -69,7 +69,7 @@ x <- "
 "
 create_dbtable('postcodes', dbname, x)
 
-# OUTPUT AREAS ------------------------------------------------------------------------------------------------------------------
+# OUTPUT AREAS ----------------------------------
 strSQL <- "
     CREATE TABLE output_areas (
     
@@ -148,7 +148,7 @@ strSQL <- "
 "
 dbSendQuery(dbc, strSQL)
 
-# WORKPLACE ZONES ---------------------------------------------------------------------------------------------------------------
+# WORKPLACE ZONES -------------------------------
 strSQL <- "
     CREATE TABLE workplace_zones (
     
@@ -180,7 +180,7 @@ strSQL <- "
 "
 dbSendQuery(dbc, strSQL)
 
-# LOCATIONS ---------------------------------------------------------------------------------------------------------------------
+# LOCATIONS -------------------------------------
 strSQL <- "
     CREATE TABLE locations (
         location_type CHAR(4) NOT NULL COLLATE 'utf8_unicode_ci' COMMENT 'see location_types.location_type',
@@ -198,7 +198,7 @@ strSQL <- "
 "
 dbSendQuery(dbc, strSQL)
 
-# NEIGHBOURS --------------------------------------------------------------------------------------------------------------------
+# NEIGHBOURS ------------------------------------
 strSQL = "
     CREATE TABLE neighbours (
         location_type CHAR(4) NOT NULL,
@@ -213,7 +213,7 @@ strSQL = "
 "
 dbSendQuery(dbc, strSQL)
 
-# DISTANCES ---------------------------------------------------------------------------------------------------------------------
+# DISTANCES -------------------------------------
 strSQL = "
     CREATE TABLE distances (
         location_type CHAR(4) NOT NULL,
@@ -228,7 +228,7 @@ strSQL = "
 "
 dbSendQuery(dbc, strSQL)
 
-# LOOKUPS -----------------------------------------------------------------------------------------------------------------------
+# LOOKUPS ---------------------------------------
 strSQL = "
     CREATE TABLE lookups (
         hierarchy_id SMALLINT(4) UNSIGNED NOT NULL COMMENT 'foreign key to hierarchies.hierarchy_id',
@@ -241,7 +241,7 @@ strSQL = "
 "
 dbSendQuery(dbc, strSQL)
 
-# HIERARCHIES -------------------------------------------------------------------------------------------------------------------
+# HIERARCHIES -----------------------------------
 strSQL = "
     CREATE TABLE hierarchies (
         hierarchy_id SMALLINT(4) UNSIGNED NOT NULL,
@@ -269,7 +269,7 @@ dbSendQuery(dbc, strSQL)
 y <- read.csv(file.path(data_path, 'hierarchies.csv'))
 dbWriteTable(dbc, 'hierarchies', y, row.names = FALSE, append = TRUE)
 
-# LOCATION_TYPES ----------------------------------------------------------------------------------------------------------------
+# LOCATION_TYPES --------------------------------
 strSQL = "
     CREATE TABLE location_types (
         location_type CHAR(4) NOT NULL,
@@ -286,7 +286,7 @@ dbSendQuery(dbc, strSQL)
 y <- read.csv(file.path(data_path, 'location_types.csv'))
 dbWriteTable(dbc, 'location_types', y, row.names = FALSE, append = TRUE)
 
-# CLEAN & EXIT ------------------------------------------------------------------------------------------------------------------
+# CLEAN & EXIT ----------------------------------
 dbDisconnect(dbc)
 rm(list = ls())
 gc()
