@@ -7,72 +7,22 @@
 #  - OA => PCS for Scotland (using boundaries)
 #  - OA => WARD
 #  - OA => PAR 
+#  - LAD => CSP
 
-####### ---------------------------------------------------------------------------------------------------------------------------------------------
-#### PRELIMINARIES ------------------------------------------------------------------------------------------------------------------------
+####### -----------------------------------------
+#### PRELIMINARIES ------------------------------
 
-# load packages -------------------------------------------------------------------------------------------------------------------------------------
-pkg <- c('data.table', 'fst', 'readODS', 'readxl', 'rgdal', 'rgeos', 'RMySQL')
+# load packages ---------------------------------
+pkg <- c('popiFun', 'data.table', 'fst', 'readODS', 'readxl', 'rgdal', 'rgeos', 'RMySQL')
 invisible(lapply(pkg, require, character.only = TRUE))
 
-# set constants -------------------------------------------------------------------------------------------------------------------------------------
-geo_path <- file.path(Sys.getenv('PUB_PATH'), 'ext_data', 'uk', 'geography')
-lkps_path <- file.path(geo_path, 'lookups')
-loca_path <- file.path(geo_path, 'locations')
-bnd_path <- file.path(geo_path, 'boundaries')
-data_out <- file.path(Sys.getenv('PUB_PATH'), 'datasets', 'uk', 'geography')
+# set constants ---------------------------------
+extp <- file.path(ext_path, 'uk', 'geography')
+lkps_path <- file.path(extp, 'lookups')
+loca_path <- file.path(extp, 'locations')
+bnd_path <- file.path(extp, 'boundaries')
 
-# define functions ----------------------------------------------------------------------------------------------------------------------------------
-build_lookups_table <- function(child, parent, is_active = TRUE, filter_country = NULL, save_results = FALSE, out_path = lkps_path){
-    # - Build a lookup table child <=> parent using the postcodes table in the UK geography DB (see script source -10-)
-    # - This function should not be used with 'OA' as child because in the csv files from ONS there are 265 OAs missing (36 ENG, 229 SCO) 
-    # - Always remember to check column 'pct_coverage' for values less than 100
-    #
-    message('Processing ', child, 's to ', parent, 's...')
-    message('Reading data from database postcodes table...')
-    dbc <- dbConnect(MySQL(), group = 'geouk')
-    strSQL <- paste0(
-        "SELECT ", child, ", ", parent, ", is_active FROM postcodes", 
-        ifelse( is.null(filter_country), "", paste0( " WHERE LEFT(CTRY, 1) = '", substr(filter_country, 1, 1), "'") )
-    )
-    postcodes <- data.table(dbGetQuery(dbc, strSQL))
-    dbDisconnect(dbc)
-    if(is_active) postcodes <- postcodes[is_active == 1]
-    postcodes[, is_active := NULL]
-    message('Aggregating...')
-    setnames(postcodes, c('child', 'parent'))
-    y <- unique(postcodes[, .(child, parent)])[, .N, child][N == 1][, child]
-    if(length(y) > 0){
-        y1 <- unique(postcodes[child %in% y, .(child, parent, pct = 100)])
-    }
-    y <- unique(postcodes[, .(child, parent)])[, .N, child][N > 1][!is.na(child), child]
-    if(length(y) > 0){
-        y2 <- postcodes[child %in% y][, .N, .(child, parent)][order(child, -N)]
-        y2 <- y2[, pct := round(100 * N / sum(N), 2), child][, .SD[1], child][, .(child, parent, pct)]
-    }
-    if(!exists('y1')){
-        y <- y2
-        exact_cov <- 0
-        partial_cov <- nrow(y2)
-    } else if(!exists('y2')){
-        y <- y1
-        exact_cov <- nrow(y1)
-        partial_cov <- 0
-    } else {
-        y <- rbindlist(list(y1, y2))
-        exact_cov <- nrow(y1)
-        partial_cov <- nrow(y2)
-    }
-    y <- y[order(child)]
-    setnames(y, c(child, parent, 'pct_coverage'))
-    if(save_results){
-        message('Saving results to csv file...')
-        if(substr(out_path, nchar(out_path), nchar(out_path)) != '/') out_path <- paste0(out_path, '/')
-        write.csv(y, paste0(out_path, child, '_to_', parent, ifelse(is.null(filter_country), '', paste0('-', filter_country)), '.csv'), row.names = FALSE)
-    }
-    message('Done! Found ', exact_cov, ' exact associations and ', partial_cov, ' partial coverage')
-    return(y)
-}
+# define functions ------------------------------
 get_summary_area <- function(area_type, country = TRUE){
     if(country){
         y <- uk[, .(X = get(area_type), CTRY = substring(CTRY, 1, 1))]
@@ -94,14 +44,14 @@ fill_missing_oas <- function(miss, ref){
     setnames(uk, c('X', 'Y'), c(miss, ref))
 }
 
-# load postcodes --------------------------------------------------------------------------------------------------------------
-pc <- read.fst(file.path(data_out, 'postcodes'), as.data.table = TRUE)
+# load postcodes ----------
+pc <- read_fst(file.path(geouk_path, 'postcodes'), as.data.table = TRUE)
 pc <- pc[is_active == 1]
 
-####### ---------------------------------------------------------------------------------------------------------------------------------------------
-#### A) Census hierachy (Output Area to LSOA, MSOA (EWS only) // LAD, RGN (E only), CTRY ----------------------------------------------
+####### -----------------------------------------
+#### A) Census hierachy (Output Area to LSOA, MSOA (EWS only) // LAD, RGN (E only), CTRY --------------------
 
-### 1- OA ==> LSOA ----------------------------------------------------------------------------------------------------------------------------------
+### 1- OA ==> LSOA ------------------------------
 
 message('Processing [OA=>LSOA] for England...')
 eng <- fread(
@@ -132,7 +82,7 @@ get_summary_area('OA', country = FALSE)
 # check totals LSOA: UK 42,619, E 32,844, W 1,909, S 6,976, N 890
 get_summary_area('LSOA', country = FALSE)
 
-### 2- LSOA > MSOA ----------------------------------------------------------------------------------------------------------------------------------
+### 2- LSOA > MSOA ------------------------------
 
 message('Processing [OA=>MSOA] for England...')
 eng <- fread(
@@ -155,7 +105,7 @@ uk <- rbindlist(list(eng, sco))[uk, on = 'OA']
 # check totals MSOA: UK 8,480, E 6,791, W 410, S 1,279, N NA
 get_summary_area('MSOA', country = FALSE)
 
-### 3- LSOA (N) / MSOA (EWS) > LAD ------------------------------------------------------------------------------------------------------------------
+### 3- LSOA (N) / MSOA (EWS) > LAD --------------
 
 message('Processing [MSOA=>LAD] for England, Wales, and Scotland...')
 ## EWS: build from 'postcodes' table using 'MSOA' as base
@@ -176,12 +126,12 @@ uk[is.na(LAD), LAD := nie[.SD[['LSOA']], .(LAD), on = 'LSOA'] ]
 # check totals LAD: UK 391, E 326, W 22, S 32, N 11
 get_summary_area('LAD', country = FALSE)
 
-### 4- LAD > CTY (E) --------------------------------------------------------------------------------------------------------------------------------
+### 4- LAD > CTY (E) ----------------------------
 
 message('Processing [LAD=>CTY] for England...')
 y <- fread(
-        file.path(lkps_path, 'Local_Authority_District_to_County_April_2019_Lookup_in_England.csv'), 
-        select = c(1, 3), 
+        file.path(lkps_path, 'Local_Authority_District_to_County_(April_2020)_Lookup_in_England.csv'), 
+        select = c(2, 4), 
         col.names = c('LAD', 'CTY')
 )
 # add Unitary Authority from LAD to complete England (changing E060 => E069 to keep primary key valid)
@@ -193,7 +143,7 @@ uk <- y[uk, on = 'LAD']
 # check totals CTY: UK 35, E 35 (plus NAs to be recoded below according to the region), W NA, S NA, N NA
 get_summary_area('CTY', country = FALSE)
 
-### 5- LAD > RGN (E) --------------------------------------------------------------------------------------------------------------------------------
+### 5- LAD > RGN (E) ----------------------------
 message('Processing [LAD=>RGN] for England...')
 # build from 'postcodes' table using 'LAD' as base
 y <- build_lookups_table('LAD', 'RGN', filter_country = 'E')
@@ -202,7 +152,7 @@ uk <- y[, 1:2][uk, on = 'LAD']
 # check totals RGN: UK 9, E 9, W NA, S NA, N NA
 get_summary_area('RGN', country = FALSE)
 
-### 6- LAD > CTRY -----------------------------------------------------------------------------------------------------------------------------------
+### 6- LAD > CTRY -------------------------------
 message('Processing [LAD=>CTRY] for UK...')
 # build from 'postcodes' table using 'LSOA' as base
 y <- build_lookups_table('LAD', 'CTRY')
@@ -218,13 +168,13 @@ get_summary_area('CTRY')
 setcolorder(uk, c('OA', 'LSOA', 'MSOA', 'LAD', 'CTY', 'RGN', 'CTRY'))
 uk <- uk[order(OA)]
 
-### 9- CTY/RGN for N/S/W ----------------------------------------------------------------------------------------------------------------------------
+### 9- CTY/RGN for N/S/W ------------------------
 uk[is.na(CTY), `:=`( CTY = paste0(CTRY, '_CTY'), RGN = paste0(CTRY, '_RGN') ) ]
 
-####### ---------------------------------------------------------------------------------------------------------------------------------------------
-#### B) Postal hierarchy: Output Area to PCS, PCD, PCA -----------------------------------------------------------------------------------------------------
+####### -----------------------------------------
+#### B) Postal hierarchy: Output Area to PCS, PCD, PCA -
 
-### 1- OA > PCS -------------------------------------------------------------------------------------------------------------------------------------
+### 1- OA > PCS ---------------------------------
 
 ## W: build from postcodes table using OA as base
 message('Processing [OA=>PCS] for Wales...')
@@ -250,8 +200,8 @@ message('Processing [OA=>PCS] for Scotland...')
 sco <- build_lookups_table('OA', 'PCS', filter_country = 'S', save_results = TRUE)
 y <- uk[CTRY == 'SCO', .(OA)]
 sco <- sco[y, on = 'OA'][, .(OA, PCS)]
-bnd.pcs <- readOGR(bnd_path, 'SC_PCS')
-bnd.oa <- readOGR(bnd_path, 'SC')
+bnd.pcs <- readOGR(file.path(bnd_path, 'PCS'), 'SC')
+bnd.oa <- readOGR(file.path(bnd_path, 'OA'), 'SC')
 y <- data.table( 'OA' = as.character(bnd.oa$code), 'PCS' = as.character(over(gCentroid(bnd.oa, byid = TRUE), bnd.pcs)[, 2]) )
 y[nchar(PCS) == 4, PCS := gsub(' ', '  ', PCS)]
 y[nchar(PCS) == 6, PCS := gsub(' ', '', PCS)]
@@ -268,10 +218,10 @@ uk <- y[uk, on = 'OA']
 # check totals CTRY: (for MAY-19) UK 9882, E 8142, W 528, S 999, N 234
 get_summary_area('PCS')
 
-### 2- PCS > PCD ------------------------------------------------------------------------------------------------------------------------------------
+### 2- PCS > PCD --------------------------------
 message('Processing [PCS=>PCD] for UK...')
 uk[, PCD := gsub(' .*', '', substr(PCS, 1, 4)) ]
-# check totals CTRY: (for FEB-19) UK 2847, E 2146, W 203, S 436, N 80 (total missing: 2955 - 2847 = 108)
+# check totals CTRY: UK 2847, E 2146, W 203, S 436, N 80 (total missing: 2955 - 2847 = 108)
 get_summary_area('PCD')
 
 ## Because of the different methods, there usually are many sectors, and some districts, missing when aggregating PCS by OAs
@@ -319,32 +269,32 @@ if(x > 0){
     for(x0 in pcd_miss[found == 0]$PCD)
         x <- rbindlist(list( x, data.table( x0, unique(pc[PCD == x0, .N, .(OA, PCS)])[order(-N)], NA )), use.names = FALSE)
     x[, lkp_PCD := sapply(miss_OA, function(x) uk[OA == x, PCD])]
-    write.csv(x, file.path(lkps_path, 'pcd_missing'), row.names = FALSE)
+    fwrite(x, file.path(lkps_path, 'pcd_missing.csv'), row.names = FALSE)
 }
 
-# check totals again CTRY: (for FEB-19) UK 2932, E 2215, W 203, S 436, N 80 (total missing: 2955 - 2932 = 23)
+# check totals again CTRY: UK 2932, E 2215, W 203, S 436, N 80 (total missing: 2955 - 2932 = 23)
 get_summary_area('PCD')
 
 
-### 3- PCD > PCT-------------------------------------------------------------------------------------------------------------------------------------
+### 3- PCD > PCT---------------------------------
 message('Processing [PCD=>PCT] for UK...')
 pcd <- fread(file.path(lkps_path, 'PCD_to_PCT.csv'))
 # merge with previous uk by PCD
 uk <- pcd[, .(PCD, PCT)][uk, on = 'PCD']
-# check totals PCT: (for FEB-19) UK 1411, E 942, W 160, S 285, N 45
+# check totals PCT: UK 1411, E 942, W 160, S 285, N 45
 get_summary_area('PCT')
 
-### 4- PCD > PCA ------------------------------------------------------------------------------------------------------------------------------------
+### 4- PCD > PCA --------------------------------
 message('Processing [PCD=>PCA] for UK...')
 uk[, PCA := sub('[0-9]', '', substr(PCS, 1, gregexpr("[[:digit:]]", PCS)[[1]][1] - 1) ) ]
 # check totals PCA: UK 121, E 96, W 2, S 15, N 1, K 7
 get_summary_area('PCA')
 
 
-####### ---------------------------------------------------------------------------------------------------------------------------------------------
+####### -----------------------------------------
 #### C) Admin/Electoral hierarchy: Output Area to TTWA, WARD, CED (E only), PCON, PAR (EW only) ------------------------------------------------------
 
-### LSOA > TTWA ---------------------------------------------------------------------------------------------------------------------------
+### LSOA > TTWA -----------------------
 message('Processing [LSOA=>TTWA] for UK...')
 y <- fread(
         file.path(lkps_path, 'LSOA11_TTWA11_UK_LU.csv'), 
@@ -353,10 +303,10 @@ y <- fread(
 )
 # merge with previous 
 uk <- y[, 1:2][uk, on = 'LSOA']
-# check totals TTWA: UK : E 149, W 18, S 45, N 10, K 6
+# check totals TTWA: UK : E 155, W 10, S 47, N 22
 get_summary_area('TTWA')
 
-### OA > WARD -----------------------------------------------------------------------------------------------------------------------------
+### OA > WARD -------------------------
 message('Processing [OA=>WARD] for UK...')
 # build from 'postcodes' table using 'OA' as base
 y <- build_lookups_table('OA', 'WARD', save_results = TRUE)
@@ -365,7 +315,7 @@ uk <- y[, 1:2][uk, on = 'OA']
 # check totals WARD: UK 8887: E 7432, W 852, S 354, N 462
 get_summary_area('WARD')
 
-### OA > CED ------------------------------------------------------------------------------------------------------------------------------
+### OA > CED --------------------------
 message('Processing [OA=>CED] for England...')
 # build from 'postcodes' table using 'OA' as base
 y <- build_lookups_table('OA', 'CED', filter_country = 'E', save_results = TRUE)
@@ -375,7 +325,7 @@ uk[substring(CED, 7) == '999', CED := NA]
 # check totals CED: UK 1717: E 1717, W NA, S NA, N NA
 get_summary_area('CED')
 
-### OA > PCON -----------------------------------------------------------------------------------------------------------------------------
+### OA > PCON -------------------------
 message('Processing [OA=>PCON] for UK...')
 # build from 'postcodes' table using 'OA' as base
 y <- build_lookups_table('OA', 'PCON', save_results = TRUE)
@@ -384,7 +334,7 @@ uk <- y[, 1:2][uk, on = 'OA']
 # check totals CTY: UK 650: E 533, W 40, S 59, N 18
 get_summary_area('PCON')
 
-### OA > PAR ------------------------------------------------------------------------------------------------------------------------------
+### OA > PAR --------------------------
 message('Processing [OA=>PAR] for England...')
 # build from 'postcodes' table using 'OA' as base
 y <- build_lookups_table('OA', 'PAR', save_results = TRUE)
@@ -408,10 +358,10 @@ get_summary_area('PAR')
 # yp2 <- uk[CTRY == 'ENG' & LSOA %in% uk[is.na(PAR), LSOA]][!is.na(PAR), .(LSOA, PAR, PCON)]
 # uk[is.na(PAR), PAR := y[.SD[['OA']], .(PAR), on = 'OA'] ]
 
-####### ---------------------------------------------------------------------------------------------------------------------------------------------
+####### -----------------------------------------
 #### D) Statistical hierarchy: Output Area to MTC (EW only), BUA (E only), BUAS (E only) ------------------------------------------------------------
 
-### OA > MTC ------------------------------------------------------------------------------------------------------------------------------
+### OA > MTC --------------------------
 message('Processing [OA=>MTC] for England...')
 # download and read lookup tables
 y <- fread(
@@ -425,7 +375,7 @@ uk <- y[uk, on = 'OA'][MTC == '', MTC := NA]
 get_summary_area('MTC')
 unique(uk[!is.na(MTC), .(MTC, CTRY)])[,.N, .(CTRY = substring(CTRY, 1, 1))]
 
-### OA > BUA ------------------------------------------------------------------------------------------------------------------------------
+### OA > BUA --------------------------
 message('Processing [OA=>BUA] for England and Wales...')
 y <- fread(
     file.path(lkps_path, 'OA11_BUASD11_BUA11_LAD11_RGN11_EW_LU.csv'), 
@@ -439,7 +389,7 @@ uk <- y[uk, on = 'OA']
 unique(uk[, .(BUA)])[, .N, substr(BUA, 1, 1)]
 get_summary_area('BUA')
 
-### OA > BUAS -----------------------------------------------------------------------------------------------------------------------------
+### OA > BUAS -------------------------
 message('Processing [OA=>BUAS] for England and Wales...')
 y <- fread(
     file.path(lkps_path, 'OA11_BUASD11_BUA11_LAD11_RGN11_EW_LU.csv'), 
@@ -455,16 +405,26 @@ get_summary_area('BUAS')
 
 
 #### E) Social hierarchy PFA (EW only), CCG, STP (E only) --------------------------------------------------------------------------
-### OA > PFA ------------------------------------------------------------------------------------------------------------------------------
+### LAD > CSP --------------------------
+message('Processing [LAD=>CSP] for England and Wales...')
+y <- fread(
+    file.path(lkps_path, 'Local_Authority_District_to_Community_Safety_Partnerships_to_Police_Force_Areas_December_2018_Lookup_in_England_and_Wales.csv'), 
+    select = c(1, 3), 
+    col.names = c('LAD', 'CSP'), 
+    na.strings = ''
+)
+uk <- y[uk, on = 'LAD']
+
+### LAD > PFA --------------------------
 message('Processing [LAD=>PFA] for England and Wales...')
-# build from 'postcodes' table using 'OA' as base
+# build from 'postcodes' table using 'LAD' as base
 y <- build_lookups_table('LAD', 'PFA', save_results = TRUE)
 # merge with previous uk by OA
 uk <- y[, 1:2][uk, on = 'LAD']
 
-### OA > STP ------------------------------------------------------------------------------------------------------------------------------
+### LSOA > STP --------------------------
 message('Processing [LSOA=>STP] for England...')
-# build from 'postcodes' table using 'OA' as base
+# build from 'postcodes' table using 'LSOA' as base
 y <- build_lookups_table('LSOA', 'STP', filter_country = 'E', save_results = TRUE)
 # merge with previous uk by OA
 uk <- y[, 1:2][uk, on = 'LSOA']
@@ -472,9 +432,9 @@ uk[STP == '', STP := NA]
 # check totals STP: UK , E , W , S , N 
 get_summary_area('STP')
 
-### OA > CCG ------------------------------------------------------------------------------------------------------------------------------
+### LSOA > CCG --------------------------
 message('Processing [LSOA=>CCG] for UK...')
-# build from 'postcodes' table using 'OA' as base
+# build from 'postcodes' table using 'LSOA' as base
 y <- build_lookups_table('LSOA', 'CCG', save_results = TRUE)
 # merge with previous uk by OA
 uk <- y[, 1:2][uk, on = 'LSOA']
@@ -483,26 +443,17 @@ uk[is.na(CCG), CCG := 'S03000043']
 # check totals CCG: UK , E , W , S , N 
 get_summary_area('CCG')
 
-### CCG > NHSO ------------------------------------------------------------------------------------------------------------------------------
+### CCG > NHSO --------------------------
 message('Processing [CCG=>NHSO] for England...')
 # build from 'postcodes' table using 'OA' as base
 y <- build_lookups_table('CCG', 'NHSO', filter_country = 'E', save_results = TRUE)
 # merge with previous uk by CCG
 uk <- y[, 1:2][uk, on = 'CCG']
 
-# @@@@@@@@@@@ FIX FOR MAY 2019 @@@@@@@@@@@@@ 
-uk[NHSO == 'E39000029', NHSO := 'E39000048']
-uk[NHSO == 'E39000030', NHSO := 'E39000045']
-uk[NHSO == 'E39000031', NHSO := 'E39000046']
-uk[NHSO == 'E39000039', NHSO := 'E39000047']
-uk[CTRY == 'NIE', NHSO := 'NIE_NHSO']
-uk[CTRY == 'SCO', NHSO := 'SCO_NHSO']
-uk[CTRY == 'WLS', NHSO := 'WLS_NHSO']
-# @@@@@@@@@@@ @@@@@@@@@@@@@@@@ @@@@@@@@@@@@@
 # check totals NHSO: UK 17, E 14, W 1 (pseudo), S 1 (pseudo), N 1 (pseudo)
 get_summary_area('NHSO')
 
-### NHSO > NHSR ------------------------------------------------------------------------------------------------------------------------------
+### NHSO > NHSR --------------------------
 message('Processing [NHSO=>NHSR] for England...')
 nhsr <- data.table(
     'NHSO' = c(
@@ -520,7 +471,7 @@ uk <- nhsr[uk, on = 'NHSO']
 # check totals NHSR: UK 10, E 7, W 1 (pseudo), S 1 (pseudo), N 1 (pseudo)
 get_summary_area('NHSR')
 
-#### G) Missing codes ---------------------------------------------------------------------------------------------------------------------
+#### G) Missing codes -----------------
 
 message('Replacing missing PCON from similar LSOA, then MSOA...')
 fill_missing_oas('PCON', 'LSOA')
@@ -531,30 +482,24 @@ fill_missing_oas('WARD', 'LSOA')
 fill_missing_oas('WARD', 'MSOA')
 
 
-### save results in database ----------------------------------------------------------------------------------------------------------------
+### save results in database ------------
 message('Save to database...')
-uk <- uk[order(OA)]
-dbc <- dbConnect(MySQL(), group = 'geouk')
-dbSendQuery(dbc, "TRUNCATE TABLE output_areas")
-dbWriteTable(dbc, 'output_areas', uk, row.names = FALSE, append = TRUE)
-dbDisconnect(dbc)
+dbm_do('geography_uk', 'w', 'output_areas', uk[order(OA)])
 
 ### recode all fields as factor, then save in fst format ------------------------------------------------------------------------------------
 message('Save as fst...')
-dbc <- dbConnect(MySQL(), group = 'geouk')
-cols <- dbGetQuery(dbc, "SELECT * FROM output_areas LIMIT 0")
-dbDisconnect(dbc)
+cols <- dbm_do('geography_uk', 'q', strSQL = 'SELECT * FROM output_areas LIMIT 0')
 cols <- intersect(names(cols), names(uk))
 setcolorder(uk, cols)
 uk[, (cols) := lapply(.SD, factor), .SDcols = cols]
-write.fst(uk, file.path(data_out, 'output_areas'))
+write_fst(uk, file.path(geouk_path, 'output_areas'))
 
 # save summary table
 y <- dcast(rbindlist(lapply(names(uk), function(x) cbind(type = x, unique(uk[, .(CTRY, get(x))])[, .N, CTRY]))), type~CTRY)
 y <- cbind(y, 'TOTAL' = rowSums(y[, 2:5]))
 fwrite(y, file.path(geo_path, 'summary_oas.csv'))
 
-#### CLEAN AND EXIT ---------------------------------------------------------------------------------------------------------------------------------
+#### CLEAN AND EXIT -----------------------------
 message('DONE!')
 rm(list = ls())
 gc()

@@ -5,9 +5,9 @@
 # SETUP -----------------------------------------
 
 # check latest @ https://geoportal.statistics.gov.uk/search?collection=Dataset&sort=-modified&tags=PRD_ONSPD
-url_ons <- 'https://www.arcgis.com/sharing/rest/content/items/ae45e39fdafe4520bba99c760c303109/data'
+url_ons <- 'https://www.arcgis.com/sharing/rest/content/items/fb894c51e72748ec8004cc582bf27e83/data'
 # check latest FULL @ https://geoportal.statistics.gov.uk/search?collection=Dataset&sort=-modified&tags=PRD_NHSPD
-url_nhs <- 'https://www.arcgis.com/sharing/rest/content/items/d7b33b66949b4bc9b9065de7544ae4d1/data'
+url_nhs <- 'https://www.arcgis.com/sharing/rest/content/items/2865c6c2094940008ee8ed257d3d74fe/data'
 
 pkg <- c('popiFun', 'data.table')
 invisible(lapply(pkg, require, char = TRUE))

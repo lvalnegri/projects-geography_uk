@@ -2,7 +2,7 @@
 # UK GEOGRAPHY * 16 - Check PCD PCT Wikipedia #
 ###############################################
 
-pkg <- c('data.table', 'rvest')
+pkg <- c('data.table', 'fst', 'rvest')
 invisible(lapply(pkg, require, character.only = TRUE))
 
 oas <- read_fst(
@@ -31,7 +31,7 @@ y[, PCD := gsub('.*\\s', '', PCD)]
 ys <- unique(y[grepl('shared', PCD)])[, PCD := gsub('shared', '', PCD)][]
 y <- y[!grepl('shared', PCD)]
 ys <- ys[!PCD %in% y[, PCD]]
-y <- rbindlist(list(y, ys))[order(V1, V2)]
+y <- rbindlist(list(y, ys))[order(PCT, PCD)]
 
 ym <- y[!PCD %in% unique(oas$PCD), PCD]
 pcm <- pc[PCD %in% ym, .N, PCD]

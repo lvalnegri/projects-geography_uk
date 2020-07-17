@@ -1,6 +1,6 @@
-#######################################
-# UK GEOGRAPHY * 15 - Postal Towns
-#######################################
+####################################
+# UK GEOGRAPHY * 15 - Postal Towns #
+####################################
 
 pkg <- c('popiFun', 'data.table', 'htmltab', 'RMySQL', 'rvest')
 invisible(lapply(pkg, require, character.only = TRUE))
@@ -23,7 +23,8 @@ fwrite(pca, file.path(data_path, 'locations', 'PCA.csv'), row.names = FALSE)
 message('\n============================================================')
 message('Downloading Postal Towns (PCT)...\n')
 url_pref <- 'https://www.postcodes-uk.com/'
-pcdt <- data.table('PCD' = character(0), PCT = character(0))
+# pcdt <- data.table(PCD = character(0), PCT = character(0))
+pcdt <- list()
 for(idx in 1:nrow(pca)){
     message(' - Processing postcode area ', idx, ' out of ', nrow(pca))
     pcdt <- rbindlist(list(
@@ -36,7 +37,9 @@ for(idx in 1:nrow(pca)){
     ))
     Sys.sleep(1)
 }
+setnames(pcdt, c('PCD', 'PCT'))
 pcdt[, `:=`(PCD = trimws(gsub('postcode', '', PCD)), PCT = trimws(gsub('postcode', '', PCT)))]
+pcdt <- pcdt[PCT != '']
 
 message('Saving dataset as csv file...')
 fwrite(pcdt, file.path(data_path, 'lookups', 'PCDT.csv'))
@@ -47,7 +50,7 @@ pcdt <- fread(file.path(data_path, 'lookups', 'PCDT.csv'))
 pcdt <- pcdt[pcd, on = 'PCD']
 url_pref <- 'http://en.wikipedia.org/wiki'
 miss <- unique(pcdt[is.na(PCT), gsub('[0-9]', '', PCD)])
-pctw <- data.table('PCD' = character(0), PCT = character(0))
+pctw <- data.table(PCD = character(0), PCT = character(0))
 for(idx in 1:length(miss)){
     message(' - Processing postcode area ', idx, ' out of ', length(miss))
     y <- data.table(htmltab(
@@ -55,7 +58,7 @@ for(idx in 1:length(miss)){
             '//*[@id="mw-content-text"]/div/table[2]'
     ))
     y <- y[!grepl('non-geo', Coverage)]
-    if(ncol(y) == 4) y <- y[!grepl('non-geo', `Local authority area`)]
+    if(ncol(y) == 4) y <- y[!grepl('non-geo', `Local authority area(s)`)]
     pctw <- rbindlist(list(pctw, y[, 1:2]), use.names = FALSE)
     Sys.sleep(1)
 }
@@ -71,25 +74,24 @@ pctw <- pctw[ PCD %in% pcdt[is.na(PCT), PCD]]
 # update first table with missing postal town names
 pcdt[is.na(PCT), PCT := pctw[.SD[['PCD']], .(PCT), on = 'PCD'] ]
 
-# manual table for last update for some districts -------------------------------------------------------------------------------
-pctw <- data.table(
-    'PCD' = c(paste0('KA', 7:10), paste0('KA', 13:15), paste0('KA', 19:30)),
-    'PCT' = c(
-        'Ayr', 'Ayr', 'Prestwick', 'Troon', 'Kilwinning', 'Beith', 'Beith', 'Maybole', 'Stevenston', 'Saltcoats', 'Ardrossan', 
-        'West Kilbride', 'Dalry', 'Kilbirnie', 'Girvan', 'Isle Of Arran', 'Isle Of Cumbrae', 'Largs', 'Largs'
-    )
-)
-pcdt[is.na(PCT), PCT := pctw[.SD[['PCD']], .(PCT), on = 'PCD'] ]
+# manual table for last update for some districts
+# pctw <- data.table(
+#     'PCD' = c(paste0('KA', 7:10), paste0('KA', 13:15), paste0('KA', 19:30)),
+#     'PCT' = c(
+#         'Ayr', 'Ayr', 'Prestwick', 'Troon', 'Kilwinning', 'Beith', 'Beith', 'Maybole', 'Stevenston', 'Saltcoats', 'Ardrossan', 
+#         'West Kilbride', 'Dalry', 'Kilbirnie', 'Girvan', 'Isle Of Arran', 'Isle Of Cumbrae', 'Largs', 'Largs'
+#     )
+# )
+# pcdt[is.na(PCT), PCT := pctw[.SD[['PCD']], .(PCT), on = 'PCD'] ]
 
 message('\nCreating IDs and Saving tables as csv...')
 
 # create postal town primary key and save table  --------------------------------------------------------------------------------
-pct <- unique(pcdt[, .(name = PCT)])[order(name)][, PCT := paste0('PCT', formatC(1:.N, width = 4, format = 'd', flag = '0'))]
-setcolorder(pct, c('PCT', 'name'))
+pct <- unique(pcdt[!is.na(PCT), .(name = PCT)])[order(name)][, .( PCT = paste0('PCT', formatC(1:.N, width = 4, format = 'd', flag = '0')), name)]
 fwrite(pct, file.path(data_path, 'locations', 'PCT.csv'), row.names = FALSE)
 
 # substitute post towns names with new ids in pcd -------------------------------------------------------------------------------
-pcdt <- pct[pcdt, on = c(name = 'PCT')][, name := NULL]
+pcdt <- pct[pcdt, on = c(name = 'PCT')][!is.na(PCT)][, name := NULL]
 setcolorder(pcdt, c('PCD', 'ordering', 'PCT'))
 fwrite(pcdt, file.path(data_path, 'lookups', 'PCD_to_PCT.csv'), row.names = FALSE)
 if(nrow(pcdt[is.na(PCT)])) 
