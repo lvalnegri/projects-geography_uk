@@ -3,7 +3,7 @@
 ##################################################################################
 
 # load packages
-pkg <- c('data.table', 'fst', 'maptools', 'RMySQL', 'spdep')
+pkg <- c('popiFun', 'data.table', 'fst', 'maptools', 'RMySQL', 'spdep')
 invisible(lapply(pkg, require, character.only = TRUE))
 
 # set constants

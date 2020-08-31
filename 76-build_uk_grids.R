@@ -2,7 +2,6 @@
 # UK GEOGRAPHY * 76 - Build UK HexGrid with postcodes reference #
 #################################################################
 
-message('Loading packages...')
 pkgs <- c('popiFun', 'data.table', 'dggridR', 'fst')
 invisible(lapply(pkgs, require, character.only = TRUE))
 	
@@ -10,18 +9,17 @@ message('loading postcodes data...')
 pch <- read_fst(file.path(geouk_path, 'postcodes'), columns = c('postcode', 'x_lon', 'y_lat'), as.data.table = TRUE)
 
 message('building the grids by metric (M / I) and spacing (1/2, 1, 2)...')
-sps <- 1:5
 for(ms in c(FALSE, TRUE)){
     
     message('===============================================')
     message('building the grids by ', ifelse(ms, 'metric', 'imperial'), ' measurement...')
     
-    for(sp in 1:length(sps)){
+    for(sp in 0:5){
         
         hname <- paste0(ifelse(ms, 'M', 'I'), sp)
         
-        message(' + building the grids by spacing ', sps[sp], '...')
-        dggs <- dgconstruct(spacing = sps[sp], metric = FALSE, resround = 'down')
+        message(' + building the grids by spacing ', sp, '...')
+        dggs <- dgconstruct(spacing = ifelse(sp == 0, 0.5, sp), metric = ms, resround = 'down')
 
         message(' + adding to postcodes the corresponding grid...')
         pch$cell <- dgGEO_to_SEQNUM(dggs, pch$x_lon, pch$y_lat)$seqnum

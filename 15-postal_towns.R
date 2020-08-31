@@ -1,6 +1,6 @@
-####################################
-# UK GEOGRAPHY * 15 - Postal Towns #
-####################################
+##################################
+# UK GEOGRAPHY * 15 - Post Towns #
+##################################
 
 pkg <- c('popiFun', 'data.table', 'htmltab', 'RMySQL', 'rvest')
 invisible(lapply(pkg, require, character.only = TRUE))
@@ -21,7 +21,7 @@ pca[, `:=`(PCA = trimws(gsub('postcode area', '', PCA)), name = trimws(gsub('pos
 fwrite(pca, file.path(data_path, 'locations', 'PCA.csv'), row.names = FALSE)
 
 message('\n============================================================')
-message('Downloading Postal Towns (PCT)...\n')
+message('Downloading Post Towns (PCT)...\n')
 url_pref <- 'https://www.postcodes-uk.com/'
 # pcdt <- data.table(PCD = character(0), PCT = character(0))
 pcdt <- list()
@@ -45,7 +45,7 @@ message('Saving dataset as csv file...')
 fwrite(pcdt, file.path(data_path, 'lookups', 'PCDT.csv'))
 
 message('\n============================================================')
-message('Downloading missed Postal Towns from Wikipedia...')
+message('Downloading missed Post Towns from Wikipedia...')
 pcdt <- fread(file.path(data_path, 'lookups', 'PCDT.csv'))
 pcdt <- pcdt[pcd, on = 'PCD']
 url_pref <- 'http://en.wikipedia.org/wiki'
@@ -71,7 +71,7 @@ pctw[, PCT := paste0( substr(PCT, 1, 1), tolower(substring(PCT, 2)) ) ]
 # retain only records with missing PCT names in joint table PCDT
 pctw <- pctw[ PCD %in% pcdt[is.na(PCT), PCD]]
 
-# update first table with missing postal town names
+# update first table with missing post town names
 pcdt[is.na(PCT), PCT := pctw[.SD[['PCD']], .(PCT), on = 'PCD'] ]
 
 # manual table for last update for some districts
@@ -86,7 +86,7 @@ pcdt[is.na(PCT), PCT := pctw[.SD[['PCD']], .(PCT), on = 'PCD'] ]
 
 message('\nCreating IDs and Saving tables as csv...')
 
-# create postal town primary key and save table  --------------------------------------------------------------------------------
+# create post town primary key and save table  --------------------------------------------------------------------------------
 pct <- unique(pcdt[!is.na(PCT), .(name = PCT)])[order(name)][, .( PCT = paste0('PCT', formatC(1:.N, width = 4, format = 'd', flag = '0')), name)]
 fwrite(pct, file.path(data_path, 'locations', 'PCT.csv'), row.names = FALSE)
 
@@ -96,6 +96,11 @@ setcolorder(pcdt, c('PCD', 'ordering', 'PCT'))
 fwrite(pcdt, file.path(data_path, 'lookups', 'PCD_to_PCT.csv'), row.names = FALSE)
 if(nrow(pcdt[is.na(PCT)])) 
     warning('CHECK pcd.csv! Not all Post Towns have been found. There still are ', nrow(pcd[is.na(PCT)]), ' missing' )
+
+# create single polygons for each post town, based on postcode districts
+
+# TBD
+
 
 message('\n============================================================')
 message('Downloading villages...\n')

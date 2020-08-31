@@ -14,7 +14,6 @@ uk <- gBuffer(uk, byid = TRUE, width = 0)
 uk <- gUnaryUnion(uk)
 uk <- spTransform(uk, crs.wgs)
 
-
 for(hname in dir(bnd_hpath)){
     
     message('Processing file ', hname, '...')
