@@ -131,6 +131,9 @@ pc[,
     .SDcols = cols
 ]
 
+message('Set PCD AB1/AB2/AB3 as terminated...')
+pc[PCD %in% paste0('AB', 1:3), is_active := 0]
+
 # NHSPD -----------------------------------------
 
 get_file(url_nhs, exp_name = 'NHSPD')
