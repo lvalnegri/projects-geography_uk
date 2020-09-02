@@ -29,6 +29,7 @@ x <- "
 
     PCS CHAR(5) NOT NULL COMMENT 'PostCode Sector: outcode plus 1st digit incode',
     PCD CHAR(4) NOT NULL COMMENT 'PostCode District: same as outcode',
+    PCT CHAR(7) NOT NULL COMMENT 'Post Town (code is auto-generated)',
     PCA CHAR(2) NOT NULL COMMENT 'PostCode Area: letters only in outcode',
 
     TTWA CHAR(9) NOT NULL COMMENT 'Travel To Work Area (E30, W22, S22, N12, K01 for overlapping zones)',
