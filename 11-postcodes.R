@@ -177,7 +177,13 @@ nhspd <- y[nhspd, on = 'nhsr'][, nhsr := NULL]
 message('Joining ONS and NHS files together...')
 pc <- nhspd[pc, on = 'postcode']
 
-#=+------------------------------------------------------------
+# CSP -------------------------------------------
+yn <- names(pc)
+y <- lookup_postcodes_shp('https://opendata.arcgis.com/datasets/27f5aaeec7004397a7d1f3e4eed07d20_0.zip?outSR=%7B%22latestWkid%22%3A27700%2C%22wkid%22%3A27700%7D', 'CSP19CD', 'CSP')
+pc <- y[pc, on = 'postcode']
+setcolorder(pc, c(yn[1:(which(yn == 'PFA') - 1)], 'CSP', yn[which(yn == 'PFA'):length(yn)]))
+
+#=+----------------------------------------------
 #  MANUAL FIXES. LAST UPDATE: AUG 2020
 pc[is_active == 1, .N, .(LAD, WARD)][, .N, WARD][N > 1]
 pc[WARD == 'E05000644', LAD := 'E09000033']
@@ -204,7 +210,7 @@ pc[PAR == 'E43000216', LAD := 'E09000026']
 y <- fread(file.path(ext_path, 'postcodes', 'E05012482.csv'))
 pc[postcode %in% y$postcode, WARD := 'E05012482']
 
-#=+------------------------------------------------------------
+#=+----------------------------------------------
 
 message('General ordering before saving...')
 setorder(pc, 'postcode')
@@ -221,6 +227,14 @@ pc[, (cols) := lapply(.SD, factor), .SDcols = cols]
 
 message('Saving dataset as fst with index over is_active and LSOA...')
 write_fst_idx('postcodes', c('is_active', 'LSOA'), pc, geouk_path)
+
+message('Converting to SpatialPoints...')
+pc <- pc[, .(postcode, x_lon, y_lat, is_active, OA)]
+coordinates(pc) <- ~x_lon+y_lat
+proj4string(pc) <- crs.wgs
+
+message('Saving...')
+saveRDS(pc, file.path(geouk_path, 'postcodes.geo'))
 
 # Closing ---------------------------------------
 
