@@ -3,7 +3,8 @@
 ##################################################
 
 # preliminaries ---------------------------------
-lapply(c('popiFun', 'data.table', 'fst'), require, char = TRUE)
+pkgs <- c('popiFun', 'data.table', 'fst')
+lapply(pkgs, require, char = TRUE)
 in_path <- file.path(pub_path, 'ancillaries', 'uk', 'geography')
 dbname <- 'geography_uk'
 
@@ -27,10 +28,10 @@ x <- "
     RGN CHAR(9) NULL DEFAULT NULL COMMENT 'Region (E12; England Only)',
     CTRY CHAR(1) NOT NULL COMMENT 'Country (E92, W92, S92, N92)',
 
-    PCS CHAR(5) NOT NULL COMMENT 'PostCode Sector: outcode plus 1st digit incode',
-    PCD CHAR(4) NOT NULL COMMENT 'PostCode District: same as outcode',
-    PCT CHAR(7) NOT NULL COMMENT 'Post Town (code is auto-generated)',
-    PCA CHAR(2) NOT NULL COMMENT 'PostCode Area: letters only in outcode',
+    PCS CHAR(5) NULL DEFAULT NULL COMMENT 'PostCode Sector: outcode plus 1st digit incode',
+    PCD CHAR(4) NULL DEFAULT NULL COMMENT 'PostCode District: same as outcode',
+    PCT CHAR(7) NULL DEFAULT NULL COMMENT 'Post Town (code is auto-generated)',
+    PCA CHAR(2) NULL DEFAULT NULL COMMENT 'PostCode Area: letters only in outcode',
 
     TTWA CHAR(9) NOT NULL COMMENT 'Travel To Work Area (E30, W22, S22, N12, K01 for overlapping zones)',
     WARD CHAR(9) NOT NULL COMMENT 'Electoral Ward (E05, W05, S13, N08)',
@@ -45,7 +46,7 @@ x <- "
 	WPZ CHAR(9) NULL DEFAULT NULL COMMENT 'Workplace Zone (E33, W35, S34, N19)',
 
 	PFA CHAR(9) NULL DEFAULT NULL COMMENT 'Police Force Area (E23, W15, S32, N24)',
-	STP CHAR(9) NOT NULL COMMENT 'Sustainability and Transformation Partnership (E54; England Only)',
+	STP CHAR(9) NULL DEFAULT NULL COMMENT 'Sustainability and Transformation Partnership (E54; England Only)',
 	CCG CHAR(9) NOT NULL COMMENT 'Clinical Commissioning Group (E38, W11, S03, ZC)',
 	NHSO CHAR(9) NOT NULL COMMENT 'NHS Local Office (E39; England Only)',
 	NHSR CHAR(9) NOT NULL COMMENT 'NHS Region (E40; England Only)',

@@ -3,8 +3,8 @@
 #######################################
 
 # load packages 
-pkg <- c('data.table', 'fst', 'RMySQL')
-invisible(lapply(pkg, require, character.only = TRUE))
+pkgs <- c('popiFun', 'data.table', 'fst', 'RMySQL')
+invisible(lapply(pkgs, require, char = TRUE))
 
 # set constants 
 pub_path <- Sys.getenv('PUB_PATH')

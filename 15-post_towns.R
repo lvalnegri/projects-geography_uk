@@ -2,8 +2,8 @@
 # UK GEOGRAPHY * 15 - Post Towns #
 ##################################
 
-pkg <- c('popiFun', 'data.table', 'htmltab', 'RMySQL', 'rvest')
-invisible(lapply(pkg, require, character.only = TRUE))
+pkgs <- c('popiFun', 'data.table', 'fst', 'htmltab', 'RMySQL', 'rvest')
+invisible(lapply(pkgs, require, char = TRUE))
 
 data_path <- file.path(ext_path, 'uk', 'geography')
 
@@ -100,7 +100,7 @@ fwrite(pcdt, file.path(data_path, 'lookups', 'PCD_to_PCT.csv'), row.names = FALS
 if(nrow(pcdt[is.na(PCT)])) 
     warning('CHECK pcd.csv! Not all Post Towns have been found. There still are ', nrow(pcd[is.na(PCT)]), ' missing' )
 
-# add PCT to postcodes
+message('Adding PCT to postcodes fst file...')
 pc <- read_fst(file.path(geouk_path, 'postcodes'), as.data.table = TRUE)
 yn <- names(pc)
 if('PCT' %in% yn) pc[, PCT := NULL]
@@ -108,14 +108,27 @@ pc <- pcdt[, .(PCD, PCT)][pc, on = 'PCD']
 pc[, `:=`( PCD = factor(PCD), PCT = factor(PCT) )]
 setcolorder(pc, c(yn[1:which(yn == 'PCD')], 'PCT', yn[(which(yn == 'PCD') + 1):length(yn)]))
 
-message('Saving dataset as fst with index over RGN and LAD...')
-write_fst_idx('postcodes', c('RGN', 'LAD'), pc, geouk_path)
+message('Adding PCT to database...')
+create_dbtable('temp', 'geography_uk', "postcode CHAR(7) NOT NULL, PCT CHAR(7) NOT NULL, PRIMARY KEY (postcode)")
+dbm_do('geography_uk', 'w', 'temp', pc[!is.na(PCT), .(postcode, PCT)], trunc = TRUE)
+dbm_do('geography_uk', 's', strSQL = 'UPDATE postcodes pc JOIN temp t ON pc.postcode = t.postcode SET pc.PCT = t.PCT')
+dbm_do('geography_uk', 's', strSQL = 'DROP TABLE temp')
 
-message('Saving dataset as fst with index over PCD and PCS...')
-write_fst_idx('postcodes_pcds', c('PCD', 'PCS'), pc, geouk_path)
-
-message('Saving dataset as fst with index over PCD and PCS...')
-write_fst_idx('postcodes_pcat', c('PCA', 'PCT'), pc, geouk_path)
+message('Saving postcodes with various indices...')
+fnames <- list(
+    'postcodes' = c('is_active', 'LSOA'),
+    'postcodes_msls' = c('MSOA', 'LSOA'),
+    'postcodes_pcoa' = c('PCON', 'OA'),    # CHECK!!!
+    'postcodes_ldwd' = c('LAD', 'WARD'),
+    'postcodes_ldpr' = c('LAD', 'PAR'),
+#    'postcodes_pfan' = c('PFA', 'PFN'),    # CHECK!!!
+    'postcodes_pcds' = c('PCD', 'PCS'),
+    'postcodes_pcat' = c('PCA', 'PCT')
+)
+for(idx in 1:length(fnames)){
+    message(' - saving with index over <', fnames[[idx]][1], '> and <', fnames[[idx]][2], '>...')
+    write_fst_idx(names(fnames[idx]), fnames[[idx]], pc, geouk_path)
+}
 
 message('\n============================================================')
 message('Downloading villages...\n')

@@ -2,8 +2,8 @@
 # UK GEOGRAPHY * 06 - DOWNLOAD LIST NON GEOGRAPHICAL POSTCODES SECTORS #
 ########################################################################
 
-pkg <- c('data.table', 'tabulizer')
-lapply(pkg, require, char = TRUE)
+pkgs <- c('data.table', 'tabulizer')
+lapply(pkgs, require, char = TRUE)
 
 message('Downloading file and extracting tables...') # updated twice a year <JAN> + <JUL>, check PAF website for correct link www.poweredbypaf.com
 y <- extract_tables('https://www.poweredbypaf.com/wp-content/uploads/2019/07/July-2019_current_non-geos-original.pdf')
