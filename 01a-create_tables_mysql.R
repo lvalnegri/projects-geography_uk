@@ -1,6 +1,6 @@
-##################################################
-# UK GEOGRAPHY * 01 - Create database and tables #
-##################################################
+###########################################################
+# UK GEOGRAPHY * 01 - Create database and tables in MySQL #
+###########################################################
 
 # preliminaries ---------------------------------
 pkgs <- c('popiFun', 'data.table', 'fst')
@@ -45,11 +45,20 @@ x <- "
 	    COMMENT 'Built-up Subdivision (E35, W38, K06 for overlapping zones; England and Wales Only; Partial Coverage)',
 	WPZ CHAR(9) NULL DEFAULT NULL COMMENT 'Workplace Zone (E33, W35, S34, N19)',
 
+	PFN CHAR(9) NULL DEFAULT NULL COMMENT 'Police Force Neighborhood (E23, W15, S32, N24)',
+	CSP CHAR(9) NULL DEFAULT NULL COMMENT 'Community Safety Partnership (E23, W15, S32, N24)',
 	PFA CHAR(9) NULL DEFAULT NULL COMMENT 'Police Force Area (E23, W15, S32, N24)',
+	FRA CHAR(9) NOT NULL COMMENT 'Fire Rescue Authorities (E40; England Only)',
+	
 	STP CHAR(9) NULL DEFAULT NULL COMMENT 'Sustainability and Transformation Partnership (E54; England Only)',
 	CCG CHAR(9) NOT NULL COMMENT 'Clinical Commissioning Group (E38, W11, S03, ZC)',
 	NHSO CHAR(9) NOT NULL COMMENT 'NHS Local Office (E39; England Only)',
 	NHSR CHAR(9) NOT NULL COMMENT 'NHS Region (E40; England Only)',
+	
+	LPA CHAR(9) NOT NULL COMMENT 'Local Planning Authorities (E40; England Only)',
+	RGD CHAR(9) NOT NULL COMMENT 'Registration Districts (E40; England Only)',
+	LRF CHAR(9) NOT NULL COMMENT 'Local Resilience Forums (E40; England Only)',
+	
 	
 	I0 INT UNSIGNED NULL DEFAULT NULL COMMENT 'HexGrid spacing half mile',
 	I1 INT UNSIGNED NULL DEFAULT NULL COMMENT 'HexGrid spacing 1 mile',
@@ -113,6 +122,7 @@ strSQL <- "
     	PFN SMALLINT(5) UNSIGNED NULL DEFAULT NULL COMMENT 'Police Force Neighbourhood',
     	CSP CHAR(9) NULL DEFAULT NULL COMMENT 'Community Safety Partnership (E22, W14; England and Wales Only)',
     	PFA CHAR(9) NULL DEFAULT NULL COMMENT 'Police Force Area (E23, W15, S32, N24)',
+    	
     	STP CHAR(9) NOT NULL COMMENT 'Sustainability and Transformation Partnership (E54; England Only)',
     	CCG CHAR(9) NOT NULL COMMENT 'Clinical Commissioning Group (E38, W11, S03, ZC)',
     	NHSO CHAR(9) NOT NULL COMMENT 'NHS Local Office (E39; England Only)',
