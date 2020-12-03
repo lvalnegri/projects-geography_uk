@@ -1,16 +1,15 @@
-#############################################################
-# UK GEOGRAPHY * 01 - Create database and tables in MonetDB #
-#############################################################
+############################################################
+# UK GEOGRAPHY * 01 - Create database and tables in duckdb #
+############################################################
 
 # preliminaries ---------------------------------
-pkgs <- c('popiFun', 'data.table', 'MonetDBLite')
+pkgs <- c('popiFun', 'data.table', 'duckdb')
 lapply(pkgs, require, char = TRUE)
 
 in_path <- file.path(pub_path, 'ancillaries', 'uk', 'geography')
-dbname <- file.path(pub_path, 'databases', 'monetdb', 'uk', 'geography')
 
-system(paste('rm -r', dbname))
-dbc <- dbConnect(MonetDBLite(), dbname)
+system(paste('rm -r', file.path(pub_path, 'databases', 'uk', 'geography.*')))
+dbc <- dbConnect(duckdb(), file.path(pub_path, 'databases', 'uk', 'geography.duckdb'))
 
 # POSTCODES -------------------------------------
 dbSendQuery(dbc, "CREATE TABLE postcodes ( 
@@ -127,7 +126,7 @@ dbSendQuery(dbc, "CREATE TABLE workplace_zones (
     y_lat DECIMAL(8,6) NULL DEFAULT NULL,
     wx_lon DECIMAL(7,6) NULL DEFAULT NULL,
     wy_lat DECIMAL(8,6) NULL DEFAULT NULL,
-    perimeter MEDIUMINT NULL DEFAULT NULL,
+    perimeter INT NULL DEFAULT NULL,
     area INT NULL DEFAULT NULL,
 	tot_uprn SMALLINT NULL DEFAULT NULL,
 	wzc CHAR(2) NULL DEFAULT NULL,
@@ -150,7 +149,7 @@ dbSendQuery(dbc, "CREATE TABLE locations (
     y_lat DECIMAL(8,6) NULL DEFAULT NULL,
     wx_lon DECIMAL(8,6) NULL DEFAULT NULL,
     wy_lat DECIMAL(8,6) NULL DEFAULT NULL,
-    perimeter MEDIUMINT NULL DEFAULT NULL,
+    perimeter INT NULL DEFAULT NULL,
     area INT NULL DEFAULT NULL
     
 )")
@@ -160,7 +159,7 @@ dbSendQuery(dbc, "CREATE TABLE neighbours (
     location_type CHAR(4) NOT NULL,
     location_id CHAR(9) NOT NULL,
     neighbour_id CHAR(9) NOT NULL,
-    distance MEDIUMINT NOT NULL
+    distance INT NOT NULL
 )")
 
 # DISTANCES -------------------------------------
@@ -168,7 +167,7 @@ dbSendQuery(dbc, "CREATE TABLE distances (
     location_type CHAR(4) NOT NULL,
     location_ida CHAR(9) NOT NULL,
     location_idb CHAR(9) NOT NULL,
-    distance MEDIUMINT NOT NULL
+    distance INT NOT NULL
 )")
 
 # LOOKUPS ---------------------------------------
@@ -187,12 +186,12 @@ dbSendQuery(dbc, "CREATE TABLE hierarchies (
     is_direct TINYINT NOT NULL,
 	listing TINYINT NOT NULL,
 	charting TINYINT NOT NULL,
-	filtering TINYINT NOT NULL,
 	mapping TINYINT NOT NULL,
+    filtering TINYINT NOT NULL,
     countries CHAR(4) NOT NULL
 )")
 y <- fread(file.path(in_path, 'hierarchies.csv'))
-dbWriteTable(dbc, 'hierarchies', y, overwrite = TRUE)
+dbWriteTable(dbc, 'hierarchies', y, append = TRUE)
 
 # LOCATION_TYPES --------------------------------
 dbSendQuery(dbc, "CREATE TABLE location_types (
@@ -200,9 +199,9 @@ dbSendQuery(dbc, "CREATE TABLE location_types (
         name CHAR(50) NOT NULL,
         theme CHAR(15) NOT NULL,
         ordering TINYINT NOT NULL,
-        count_ons MEDIUMINT NULL,
-        count_pc MEDIUMINT NULL,
-        count_db MEDIUMINT NULL
+        count_ons INT NULL,
+        count_pc INT NULL,
+        count_db INT NULL
 )")
 y <- fread(file.path(in_path, 'location_types.csv'))
 dbWriteTable(dbc, 'location_types', y, overwrite = TRUE)
@@ -210,7 +209,6 @@ dbWriteTable(dbc, 'location_types', y, overwrite = TRUE)
 # CLEAN & EXIT ----------------------------------
 dbListTables(dbc)
 dbDisconnect(dbc, shutdown = TRUE)
-monetdblite_shutdown()
 
 rm(list = ls())
 gc()
