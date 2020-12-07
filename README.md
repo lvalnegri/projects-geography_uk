@@ -8,7 +8,7 @@ There are two files:
  - [ONSPD](http://geoportal.statistics.gov.uk/datasets?q=ONS+Postcode+Directory+(ONSPD)+zip&sort_by=updated_at) 
  - [NHSPD](http://geoportal.statistics.gov.uk/datasets?q=NHS+Postcode+Directory+(NHSPD)+full+zip&sort_by=updated_at)
  
-with mostly overlapping information. The main difference being the way 
+with mostly overlapping information.
 
 Both contain ALL:
  - current (*live*) postcodes within the UK, as received monthly from the various postal admin within the UK
@@ -19,7 +19,7 @@ We'll be using only the shorter 7-char *PCD* form:
  - *inward* code always 3 chars (1st numeric, 2nd and 3rd alpha), right aligned
 
 #### Credits
-Unit postcodes remain the copyright of *Royal Mail*.  All other information on the ONSPD is *Crown* copyright.
+Unit postcodes (PCU) remain the copyright of *Royal Mail*.  All other information on the ONSPD is *Crown* copyright.
 The user should be aware of the attribution and sub-licensing requirements associated with the use of the *Code-Point* Open data (from which postcode products are derived) contained in the OS OpenData Licence, namely that the licensee:
 
 - Must always use the following attribution statements to acknowledge the source of the information: 
@@ -29,37 +29,55 @@ The user should be aware of the attribution and sub-licensing requirements assoc
    
  - Must ensure that the same attribution statements are contained in any sub-licences of the Information that are granted, together with a requirement that any further sub-licences do the same. 
  
-The user should also note that following agreement with Land and Property Services (LPS) Northern Ireland, Open Government Licensing terms do not apply to NI postcodes; separate licensing terms and conditions now apply in the form of an LPS End User licence or contact LPS directly for commercial use. Please see the Licences web page for further details. 
+The user should also note that, following agreement with Land and Property Services (LPS) Northern Ireland, Open Government Licensing terms do not apply to NI postcodes; separate licensing terms and conditions now apply in the form of an LPS End User licence or contact LPS directly for commercial use. Please see their Licences web page for further details. 
 
 
 ### Locations
-The following is a comprehensive list of the areas stored in the database when running the script. 
+The following is a comprehensive list of the areas stored in the database when running the script, and for which you can find a simplified boundary file (in *RDS* format as *SpatialPolygonsDataFrame*) in the *data* subdirectory. 
  
- - **OA**. UK. GB: 2011 Census Output Area (OA); NIE: 2011 Census Small Area (SA)
- - **LSOA**. UK. ENG, WLS: 2011 Census Lower Layer Super Output Area (LSOA); SCO: 2011 Census Data Zone (DZ); NIE: 2011 Census Small Output Area (SOA)
- - **MSOA**. GB. ENG, WLS: 2011 Census Middle Layer Super Output Area (MSOA); SCO: 2011 Census Intermediate Zone (I Z)
- - **LAD**. UK. ENG: Local Authority District (LAD), Unitary Authority (UA), Metropolitan District (MD), London Borough (LB); WLS: Unitary Authority (UA); SCO: Council Area (CA), NIE: District Council Area (DCA) 
- - **CTY**. ENG: County (only for UA/MD/LB, see LAD)
- - **RGN**. ENG: Region
- - **CTRY**. UK: Country
- - **PCS**. UK: Postcode Sector
- - **PCD**. UK: Postcode District
- - **PCT**. UK: Post Town
- - **PCA**. UK: Postcode Area
- - **TTWA**. UK: Travel to Work Area. There are also six *cross-border* areas (K01000009, ..., K01000014)
- - **WARD**. UK: Electoral Division
- - **PCON**. UK: Westminster Parliamentary Constituency
- - **CED**. ENG: Electoral County
- - **MTC**. EW: Major Towns and Cities
- - **BUAS**. EW: Major Towns and Cities
- - **BUA**. EW: Major Towns and Cities
- - **WKZ**. UK: 2011 Census Workplace Zone
- - **PFA**. EW: Police Force Area
- - **PAR**. EW. ENG: Civil Parish or Unparished; WLS: Community.
- - **CCG**. UK. ENG: Clinical Commissioning Group (CCG); WLS: Local Health Board (LHB); SCO: Community Health Partnership (CHP); NIE: Local Commissioning Group (LCG) 
- - **NHSO**. ENG: NHS Local Office (formerly Local Area Team)
- - **NHSR**. ENG: NHS Region
-
+ - **CENSUS**:
+   - **WKZ**.  UK:  2011 Census Workplace Zone
+   - **OA**.   UK. GB: 2011 Census Output Area (OA); NIE: 2011 Census Small Area (SA)
+   - **LSOA**. UK. ENG, WLS: 2011 Census Lower Layer Super Output Area (LSOA); SCO: 2011 Census Data Zone (DZ); NIE: 2011 Census Small Output Area (SOA)
+   - **MSOA**. GB. ENG, WLS: 2011 Census Middle Layer Super Output Area (MSOA); SCO: 2011 Census Intermediate Zone (I Z)
+   - **LAD**.  UK. ENG: Local Authority District (LAD), Unitary Authority (UA), Metropolitan District (MD), London Borough (LB); WLS: Unitary Authority (UA); SCO: Council Area (CA), NIE: District Council Area (DCA) 
+   - **CTY**.  ENG: County (only for UA/MD/LB, see LAD)
+   - **RGN**.  ENG: Region
+   - **CTRY**. UK: Country
+   
+ - **POSTCODES**
+   - **PCS**. UK: Postcode Sector
+   - **PCD**. UK: Postcode District
+   - **PCT**. UK: Post Town
+   - **PCA**. UK: Postcode Area
+   
+ - **ELECTORAL**
+   - **PCON**. UK:  Westminster Parliamentary Constituency
+   - **WARD**. UK:  Electoral Division
+   - **CED**.  ENG: Electoral County
+   
+ - **URBAN**
+   - **TTWA**. UK:  Travel to Work Area. There are also six *cross-border* areas (K01000009, ..., K01000014)
+   - **MTC**.  EW:  Major Towns and Cities
+   - **BUAS**. EW:  
+   - **BUA**.  EW:  
+   
+ - **SOCIAL**
+   - **PAR**. EW.  ENG: Civil Parish or Unparished; WLS: Community.
+   - **PFN**. EW: Police Force Neighborhood
+   - **PFA**. EW: Police Force Area
+   - **FRA**. EW: Fire Rescue Authorities (Dec-2019)
+   - **CSP**. EW: Community Safety Partnership (Dec-2019)
+   - **LPA**. EW: Local Planning Authorities (Apr-2020)
+   - **RGD**. EW: Registration Districts (Apr-2019)
+   - **LRF**. EW: Local Resilience Forums (Dec-2019)
+ 
+ - **HEALTH**
+   - **CCG**. UK. ENG: Clinical Commissioning Group (CCG); WLS: Local Health Board (LHB); SCO: Community Health Partnership (CHP); NIE: Local Commissioning Group (LCG) 
+   - **STP**.  
+   - **NHSO**. ENG: NHS Local Office (formerly Local Area Team)
+   - **NHSR**. ENG: NHS Region
+   - **CIS**. ENG: Covid Infection Survey (Oct-2020)
 
 ### Lookups (starting from Output Areas - OAs)
 
