@@ -2,13 +2,14 @@
 # UK GEOGRAPHY * 15 - Post Towns #
 ##################################
 
-pkgs <- c('popiFun', 'data.table', 'fst', 'htmltab', 'RMySQL', 'rvest')
+# load packages ---------------------------------
+pkgs <- c('dmpkg.funs', 'data.table', 'fst', 'htmltab', 'DBI', 'rvest')
 invisible(lapply(pkgs, require, char = TRUE))
 
+# set constants ---------------------------------
 data_path <- file.path(ext_path, 'uk', 'geography')
 
-pcd <- fread(file.path(data_path, 'locations', 'PCD.csv'))
-
+# Postcode Areas (PCA) --------------------------
 message('Downloading Postcode Areas (PCA)...')
 url_pref <- 'https://www.postcodes-uk.com/'
 pca <- read_html(paste0(url_pref, 'postcode-areas')) %>%
@@ -20,6 +21,7 @@ pca <- read_html(paste0(url_pref, 'postcode-areas')) %>%
 pca[, `:=`(PCA = trimws(gsub('postcode area', '', PCA)), name = trimws(gsub('postcode area', '', name)))]
 fwrite(pca, file.path(data_path, 'locations', 'PCA.csv'), row.names = FALSE)
 
+# Post Towns (PCT) ------------------------------
 message('\n============================================================')
 message('Downloading Post Towns (PCT)...\n')
 url_pref <- 'https://www.postcodes-uk.com/'
@@ -45,6 +47,7 @@ fwrite(pcdt, file.path(data_path, 'lookups', 'PCDT.csv'))
 
 message('\n============================================================')
 message('Downloading missed Post Towns from Wikipedia...')
+pcd <- fread(file.path(data_path, 'locations', 'PCD.csv'))
 pcdt <- fread(file.path(data_path, 'lookups', 'PCDT.csv'))
 pcdt <- pcdt[pcd, on = 'PCD']
 url_pref <- 'http://en.wikipedia.org/wiki'
@@ -108,28 +111,11 @@ pc <- pcdt[, .(PCD, PCT)][pc, on = 'PCD']
 pc[, `:=`( PCD = factor(PCD), PCT = factor(PCT) )]
 setcolorder(pc, c(yn[1:which(yn == 'PCD')], 'PCT', yn[(which(yn == 'PCD') + 1):length(yn)]))
 
-message('Adding PCT to database...')
-create_dbtable('temp', 'geography_uk', "postcode CHAR(7) NOT NULL, PCT CHAR(7) NOT NULL, PRIMARY KEY (postcode)")
-dbm_do('geography_uk', 'w', 'temp', pc[!is.na(PCT), .(postcode, PCT)], trunc = TRUE)
-dbm_do('geography_uk', 's', strSQL = 'UPDATE postcodes pc JOIN temp t ON pc.postcode = t.postcode SET pc.PCT = t.PCT')
-dbm_do('geography_uk', 's', strSQL = 'DROP TABLE temp')
-
 message('Saving postcodes with various indices...')
-fnames <- list(
-    'postcodes' = c('is_active', 'LSOA'),
-    'postcodes_msls' = c('MSOA', 'LSOA'),
-    'postcodes_pcoa' = c('PCON', 'OA'),    # CHECK!!!
-    'postcodes_ldwd' = c('LAD', 'WARD'),
-    'postcodes_ldpr' = c('LAD', 'PAR'),
-#    'postcodes_pfan' = c('PFA', 'PFN'),    # CHECK!!!
-    'postcodes_pcds' = c('PCD', 'PCS'),
-    'postcodes_pcat' = c('PCA', 'PCT')
-)
-for(idx in 1:length(fnames)){
-    message(' - saving with index over <', fnames[[idx]][1], '> and <', fnames[[idx]][2], '>...')
-    write_fst_idx(names(fnames[idx]), fnames[[idx]], pc, geouk_path)
-}
+save_postcodes(pc)
 
+
+# Villages --------------------------------------
 message('\n============================================================')
 message('Downloading villages...\n')
 
@@ -157,6 +143,8 @@ y <- pct[y, on = 'PCT'][!is.na(name), .(PCD, village = name)]
 villages <- rbindlist( list(villages, y) )
 fwrite(villages[order(PCD, village)], file.path(data_path, 'locations', 'villages.csv'), row.names = FALSE)
 
+
+# Clean and Exit --------------------------------
 message('\nDONE! Cleaning...')
 rm(list = ls())
 gc()
