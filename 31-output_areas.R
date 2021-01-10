@@ -13,8 +13,8 @@
 #### PRELIMINARIES ------------------------------
 
 # load packages ---------------------------------
-pkg <- c('popiFun', 'data.table', 'fst', 'readODS', 'readxl', 'rgdal', 'rgeos', 'RMySQL')
-invisible(lapply(pkg, require, character.only = TRUE))
+pkgs <- c('popiFun', 'data.table', 'fst', 'readODS', 'readxl', 'rgdal', 'rgeos', 'RMySQL')
+invisible(lapply(pkgs, require, char = TRUE))
 
 # set constants ---------------------------------
 extp <- file.path(ext_path, 'uk', 'geography')
@@ -45,8 +45,7 @@ fill_missing_oas <- function(miss, ref){
 }
 
 # load postcodes ----------
-pc <- read_fst(file.path(geouk_path, 'postcodes'), as.data.table = TRUE)
-pc <- pc[is_active == 1]
+pc <- read_fst_idx(file.path(geouk_path, 'postcodes'), 1)
 
 ####### -----------------------------------------
 #### A) Census hierachy (Output Area to LSOA, MSOA (EWS only) // LAD, RGN (E only), CTRY --------------------

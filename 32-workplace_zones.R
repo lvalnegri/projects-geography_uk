@@ -6,13 +6,13 @@
 pkgs <- c('popiFun', 'data.table', 'fst', 'RMySQL')
 invisible(lapply(pkgs, require, char = TRUE))
 
-# set constants 
-pub_path <- Sys.getenv('PUB_PATH')
-lkps_path <- file.path(pub_path, 'ext_data', 'uk', 'geography', 'lookups')
-data_path <- file.path(pub_path, 'datasets', 'uk', 'geography') 
-
 # define functions
-build_lookups_table <- function(child, parent, is_active = TRUE, filter_country = NULL, save_results = FALSE, out_path = lkps_path){
+build_lookups_table <- function(child, parent, 
+                                is_active = TRUE, 
+                                filter_country = NULL, 
+                                save_results = FALSE, 
+                                out_path = file.path(ext_path, 'uk', 'geography', 'lookups')
+                       ){
     # - Build a lookup table child <=> parent using the postcodes table in the UK geography DB (see script source -10-)
     # - This function should not be used with 'OA' as child because in the csv files from ONS there are 265 OAs missing (36 ENG, 229 SCO) 
     # - Always remember to check column 'pct_coverage' for values less than 100
@@ -64,7 +64,7 @@ build_lookups_table <- function(child, parent, is_active = TRUE, filter_country 
 }
 
 # load output areas
-oas <- read.fst(file.path(data_path, 'output_areas'), as.data.table = TRUE)
+oas <- read.fst(file.path(geouk_path, 'output_areas'), as.data.table = TRUE)
 
 # WPZ ==> MSOA (ESW) 
 eng <- build_lookups_table('WPZ', 'MSOA', filter_country = 'E')
@@ -78,7 +78,7 @@ wpz.ms <- sf::read_sf(file.path(pub_path, 'boundaries', 'uk', 'shp', 's00'), lay
             filter(substr(id, 1, 1) == 'E') %>% 
             filter(!id %in% uk$WPZ) %>% 
             pull(id)
-pc <- read_fst(file.path(data_path, 'postcodes'), columns = c('postcode', 'is_active', 'WPZ', 'MSOA'), as.data.table = TRUE)
+pc <- read_fst(file.path(geouk_path, 'postcodes'), columns = c('postcode', 'is_active', 'WPZ', 'MSOA'), as.data.table = TRUE)
 wpz.ms <- pc[is_active == 0 & WPZ %in% wpz.ms][, .N, .(WPZ, MSOA)][order(-N)][, .SD[1], WPZ][, .(WPZ, MSOA)]
 wpz.ms <- unique(oas[CTRY != 'NIE', .(MSOA, LAD, CTY, RGN, CTRY)])[wpz.ms, on = 'MSOA']
 uk <- rbindlist(list( uk, wpz.ms ))
@@ -105,7 +105,7 @@ dbDisconnect(dbc)
 
 # recode all fields as factor, then save in fst format 
 uk[, WPZ := factor(WPZ)]
-write.fst(uk, file.path(data_path, 'workplace_zones'))
+write.fst(uk, file.path(geouk_path, 'workplace_zones'))
 
 # Clean and Exit
 message('DONE!')
