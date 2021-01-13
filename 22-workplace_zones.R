@@ -3,7 +3,7 @@
 #######################################
 
 # load packages 
-pkgs <- c('popiFun', 'data.table', 'fst', 'RMySQL')
+pkgs <- c('dmpkg.funs', 'data.table', 'fst')
 invisible(lapply(pkgs, require, char = TRUE))
 
 # define functions

@@ -13,7 +13,7 @@
 #### PRELIMINARIES ------------------------------
 
 # load packages ---------------------------------
-pkgs <- c('popiFun', 'data.table', 'fst', 'readODS', 'readxl', 'rgdal', 'rgeos', 'RMySQL')
+pkgs <- c('dmpkg.funs', 'data.table', 'fst', 'readODS', 'readxl', 'rgdal', 'rgeos')
 invisible(lapply(pkgs, require, char = TRUE))
 
 # set constants ---------------------------------
@@ -480,10 +480,6 @@ message('Replacing missing WARD from similar LSOA, then MSOA...')
 fill_missing_oas('WARD', 'LSOA')
 fill_missing_oas('WARD', 'MSOA')
 
-
-### save results in database ------------
-message('Save to database...')
-dbm_do('geography_uk', 'w', 'output_areas', uk[order(OA)])
 
 ### recode all fields as factor, then save in fst format ------------------------------------------------------------------------------------
 message('Save as fst...')
