@@ -14,8 +14,10 @@ invisible(lapply(pkgs, require, char = TRUE))
 
 setDTthreads(10)
 
-pc_path <- file.path(ext_path, 'uk', 'geography', 'postcodes')
-lc_path <- file.path(ext_path, 'uk', 'geography', 'locations')
+gpath <- file.path(ext_path, 'uk', 'geography')
+pc_path <- file.path(gpath, 'postcodes')
+lc_path <- file.path(gpath, 'locations')
+lk_path <- file.path(gpath, 'lookups')
 
 get_file <- function(x, exp_name = 'ONSPD', pc_path = pc_path){
     message('\nDownloading ', exp_name, ' zip file...\n')
@@ -30,11 +32,15 @@ get_file <- function(x, exp_name = 'ONSPD', pc_path = pc_path){
     message('\nDone!\n')
 }
 
-add_geo2pc <- function(furl, onsid, tpe, save_names = NULL, del_col = FALSE){
+add_geo2pc <- function(furl, onsid, tpe, save_names = NULL, del_col = FALSE, update_col = FALSE){
     y <- lookup_postcodes_shp(furl, onsid, tpe, save_names)
     message('Adding new column to postcodes dataset...')
-    if(del_col) pc[, tpe := NULL]
-    y[pc, on = 'PCU']
+    if(update_col){
+        dt_update(pc, y)
+    } else {
+        if(del_col) pc[, (tpe) := NULL]
+        y[pc, on = 'PCU']
+    }
 }
 
 # ONSPD -----------------------------------------
@@ -114,7 +120,7 @@ pc <- pc[!PCS %in% ng$PCS]
 message(' - Number of OAs after deletion: ', unique(pc[is_active == 1, .(OA)])[,.N])
 
 message('Saving a version as SpatialPoints...')
-y <- pc[, .(PCU, x_lon, y_lat, is_active, OA)]
+y <- pc[, .(PCU, x_lon, y_lat, is_active, OA, RGN, CTRY)]
 coordinates(y) <- ~x_lon+y_lat
 proj4string(y) <- crs.wgs
 saveRDS(y, file.path(geouk_path, 'postcodes.geo'))
@@ -176,11 +182,6 @@ ctry <- data.table( 'old' = c('E', 'W', 'S', 'N'), 'CTRY' = c('ENG', 'WLS', 'SCO
 pc <- ctry[pc, on = c(old = 'CTRY')][, old := NULL]
 pc[is.na(RGN), RGN := paste0(CTRY, '_RGN')]
 
-message('\nAdding Scottish PARishes...')
-y <- lookup_postcodes_shp('https://www.nrscotland.gov.uk/files/geography/products/CivilParish1930.zip', 'C91code1', 'PAR')
-y <- y[!is.na(PAR)][, PAR := paste0('S040', PAR)]
-pc <- pc[CTRY == 'SCO' , PAR := y[.SD[['PCU']], .(PAR), on = 'PCU'] ]
-
 
 # NHSPD -----------------------------------------
 # get_file(url_nhs, exp_name = 'NHSPD')
@@ -209,7 +210,7 @@ pc <- nhspd[pc, on = 'PCU']
 
 # ADDITIONAL GEOGRAPHIES ------------------------
 
-message('\nAdding MTC Major Towns and Cities (December 2015)...')
+message('\nAdding MTC Major Towns and Cities (Dec-2015)...')
 pc <- add_geo2pc('https://opendata.arcgis.com/datasets/5048387903bc49ca964cf04cd42b790d_0.zip', 'TCITY15CD', 'MTC', 'TCITY15NM')
 
 message('\nAdding CSP - Community Safety Partnership (Dec-2019)...')
@@ -228,32 +229,157 @@ message('\nAdding LRF - Local Resilience Forums (Dec-2019)...')
 pc <- add_geo2pc('https://opendata.arcgis.com/datasets/f93348856f0649e98e3a670199245e92_0.zip', 'LRF19CD', 'LRF', 'LRF19NM')
 
 message('\nAdding CIS - Covid Infection Survey (Oct-2020)...')
-pc <- add_geo2pc('https://opendata.arcgis.com/datasets/e68cae217c7e45e895c5921681745ccc_0.zip', 'CIS20CD', 'CIS')
+pc <- add_geo2pc('https://opendata.arcgis.com/datasets/c424a13a9da640c7b0ba8f8fc8f7aedf_0.zip', 'CIS20CD', 'CIS')
 
 
-# SUBSTITUTING GEOGRAPHIES ----------------------
-message('\nChanging Wards (Dec-2020)...')
-pc <- add_geo2pc('https://opendata.arcgis.com/datasets/71658b704db247718ccc3f01b53c06e2_0.zip', 'WD20CD', 'WARD', 'WD20NM', TRUE)
+# UPDATED GEOGRAPHIES ---------------------------
 
-message('\nChanging Parishes and Non Civil Parished Areas (Dec-2020)...')
-pc <- add_geo2pc('https://opendata.arcgis.com/datasets/743ab54b61aa4827a5771ade3f1b99c4_0.zip', 'PARNSP20CD', 'PAR', 'PARNSP20NM', TRUE)
+message('\nUpdating Local Authorities Districts (Dec-2020)...')
+pc <- add_geo2pc('https://opendata.arcgis.com/datasets/3b374840ce1b4160b85b8146b610cd0c_0.zip', 'LAD20CD', 'LAD', 'LAD20NM', TRUE)
+y <- pc[ LSOA %in% pc[is.na(LAD), LSOA], .N, .(LSOA, LAD)]
+y <- y[ y[, .I[which.max(N)], LSOA ]$V1, 1:2 ]
+pc <- pc[is.na(LAD) , LAD := y[.SD[['LSOA']], .(LAD), on = 'LSOA'] ]
+pc <- dt_update(pc, y)
+
+message('\nUpdating Electoral Wards (Dec-2020)...')
+pc <- add_geo2pc('https://opendata.arcgis.com/datasets/4b2425598a1d491f81e53f76a741c334_0.zip', 'WD20CD', 'WARD', 'WD20NM', TRUE)
+y <- pc[ OA %in% pc[is.na(WARD), OA], .N, .(OA, WARD)]
+y <- y[ y[, .I[which.max(N)], OA ]$V1, 1:2 ]
+pc <- pc[is.na(WARD) , WARD := y[.SD[['OA']], .(WARD), on = 'OA'] ]
+pc <- dt_update(pc, y)
+pc[OA == 'S00097491', WARD := 'S13002882'] # LSOA: S01007526 
+pc[OA == 'S00129989', WARD := 'S13003091'] # LSOA: S01012480
+
+message('\nUpdating Parishes and Non Civil Parished Areas (Dec-2020)...')
+pc <- add_geo2pc('https://opendata.arcgis.com/datasets/eb0624d6fd1f499ea352f450df70b5f7_0.zip', 'PARNCP20CD', 'PAR', 'PARNCP20NM', FALSE, TRUE)
+
+message('\n - Adding Scottish PARishes...')
+y <- lookup_postcodes_shp('https://www.nrscotland.gov.uk/files/geography/products/CivilParish1930.zip', 'C91code1', 'PAR')
+y <- y[!is.na(PAR)][, PAR := paste0('S040', PAR)]
+pc <- pc[CTRY == 'SCO' , PAR := y[.SD[['PCU']], .(PAR), on = 'PCU'] ]
 
 
-# SAVE  -----------------------------------------
-message('Recoding columns as factors...')
+# ADD PCT Post Towns ----------------------------
+
+message('\nAdding PCT - Post Town... (did you remember to update the lookups file?)')
+pcdt <- fread(file.path(lk_path, 'PCD_to_PCT.csv'), select = c('PCD', 'PCT'))
+pc <- pcdt[pc, on = 'PCD']
+
+# ADD PFN Police Neighbourhood ------------------
+
+message('\nAdding PFN - Police Force Neighborhood...')
+message(' - loading boundaries...  (did you remember to update the boundaries?)')
+nbnd <- rgdal::readOGR(file.path(gpath, 'boundaries', 'shp'), 'PFN')
+message(' - filtering out Scotland...')
+pcn <- pc[CTRY != 'SCO', .(PCU, x_lon, y_lat)]
+message(' - converting ENW postcodes into a spatial points object...')
+coordinates(pcn) <- ~x_lon+y_lat
+proj4string(pcn) <- crs.wgs
+message(' - performing Points in Polygon...')
+y <- over(pcn, nbnd)
+message(' - merging into postcodes...')
+pc <- setDT(cbind(pcn@data, y))[pc, on = 'PCU']
+setnames(pc, 'id', 'PFN')
+
+# check voids using a map overlaying MSOA
+# bnd <- sp::merge(nbnd, neighs, by.x = 'id', by.y = 'PFN')
+# mp <- basemap(bnd = bnd, bndid = 'PFNn') 
+# lsoa <- readRDS(file.path(bnduk_spath, 'LSOA'))
+# lsoa <- subset(lsoa, substr(lsoa$id, 1, 1) != 'S')
+# mp <- mp %>% leaflet::addPolygons(data = lsoa, fillOpacity = 0, color = 'black', label = ~id)
+# pcna <- pc[CTRY != 'SCO' & is.na(PFN), .(PCU, x_lon, y_lat, LSOA, MSOA)]
+# mp <- mp %>% leaflet::addCircles(data = pcna, lng = ~x_lon, lat = ~y_lat, fillOpacity = 1, color = 'black', label = ~paste(LSOA, MSOA))
+
+# FIX NOVEMBER 2020 
+pc[MSOA %in% c('E02003645', 'E02003646', 'E02003647', 'E02003648', 'E02003649', 'E02003651'), PFN := 'E23000026_007'] # Dunstable Town
+pc[LSOA %in% c('E01017586', 'E01017587'), PFN := 'E23000026_007'] # Dunstable Rural
+pc[LSOA %in% c('W01000614', 'W01000622'), PFN := 'W15000004_014']
+
+# HEATHROW NON TERMINALS
+pc[is.na(PFN) & LSOA %in% c('E01002443', 'E01002444'), PFN := 'E23000001_659']
+
+message(' - adding PFN to missing postcode using similar LSOA...')
+y <- unique(pc[!is.na(PFN) & LSOA %in% unique(pc[CTRY != 'SCO' & is.na(PFN), LSOA]), .N, .(LSOA, PFN)])[order(LSOA, -N)]
+yd <- y[LSOA %in% y[, .N, LSOA][N > 1, LSOA]]
+y <- rbindlist(list( y[LSOA %in% y[, .N, LSOA][N == 1, LSOA], .(LSOA, PFN)] , yd[yd[, .I[which.max(N)], .(LSOA)]$V1, .(LSOA, PFN)] ))
+pc <- dt_update(pc, y)
+
+message(' - adding Scottish PFN/PFA as mapping from LADs/WARDs...')
+y <- fread(file.path(lk_path, 'SCO_LAD_PFA.csv'))
+pc <- dt_update(pc, y)
+pc[WARD == 'S13002914', PFA := 'S32000018']
+pc[WARD == 'S13002934', PFA := 'S32000012']
+pc[WARD == 'S13003133', PFA := 'S32000018']
+y <- unique(pc[CTRY == 'SCO', .(WARD, PFA)])[order(PFA, WARD)]
+y[, PFN := paste0(PFA, '_', stringr::str_pad(1:.N, 3, 'left', '0')), PFA][, PFA := NULL]
+pc <- dt_update(pc, y)
+fwrite(y, file.path(lk_path, 'SCO_WARD_PFN.csv'))
+
+# save lookups and postcodes dataset
+fwrite(pc[, .(PCU, PFN)], file.path(lk_path, 'PCU_to_PFN.csv'))
+
+# FINAL CHECK -----------------------------------
+
+# reorder columns according to general hierarchy schema
 cols <- c(
-    'OA', 'LSOA', 'MSOA', 'LAD', 'CTY', 'RGN', 'CTRY', 
-    'TTWA', 'WARD', 'PCON', 'CED', 'PAR', 'BUA', 'BUAS', 'WPZ', 
-    'PCS', 'PCD', 'PCA',
-    'PFA', 'FRA', 'CSP', 'LPA', 'RGD', 'LRF', 
+    'OA', 'LSOA', 'MSOA', 'LAD', 'CTY', 'RGN', 'CTRY', 'WPZ',
+    'TTWA', 'WARD', 'PCON', 'CED', 'PAR',
+    'MTC', 'BUA', 'BUAS',
+    'PCS', 'PCD', 'PCT', 'PCA',
+    'PFN', 'PFA', 'FRA', 'CSP', 'LPA', 'RGD', 'LRF',
     'CCG', 'STP', 'NHSO', 'NHSR', 'CIS'
 )
 setcolorder(pc, c('PCU', 'is_active', 'usertype', 'x_lon', 'y_lat', cols))
+
+message('\nBuilding various counts for potential country mismatches and small areas overlapping for all geographies...')
+pc[pc == ''] <- NA
+tot <- lapply(cols, function(x) pc[!is.na(get(x)), .N, get(x)][order(get)] )
+names(tot) <- cols
+acro <- lapply(cols, function(x) unique(pc[!is.na(get(x)), .(X = substr(get(x), 1, 3), CTRY)]) )
+names(acro) <- cols
+mm <- lapply(cols, function(x) pc[, .(X = get(x), CTRY)][!is.na(X)][, .N, .(CTRY, X)][, .N, CTRY])
+ovc <- lapply(cols, function(x) pc[is_active == 1, .(OA, X = get(x))][!is.na(X)][, .N, .(OA, X)][order(OA, -N)])
+names(mm) <- cols -> names(ovc) 
+ov <- lapply(cols, function(x) ovc[[x]][, .N, OA][N > 1])
+names(ov) <- cols
+ovf <- lapply(cols, function(x) ovc[[x]][OA %in% ov[[x]][, OA]])
+names(ovf) <- cols
+ovu <- lapply(cols, function(x) ovf[[x]][ ovf[[x]][, .I[which.max(N)], OA ]$V1, 1:2 ])
+names(ovu) <- cols
+
+# fixing mismatches between countries and overlapping between small areas and some upper levels...
+pc[CTRY == 'WLS', CIS := NA]
+pc[CTRY == 'ENG' & FRA == 'W25000002', FRA := 'E31000032']
+pc[OA == 'E00070946', `:=`( WARD = 'E05009473', PAR = 'E04000793', LPA = 'E60000113', RGD = 'E28000139' )]
+pc[OA == 'E00147247', `:=`( WARD = 'E05008163', PAR = 'E04011304', LPA = 'E60000114', RGD = 'E28000183' )]
+pc[OA %in% c('E00113093', 'E00113175', 'E00113231', 'E00113232', 'E00113240'), RGD := 'E28000135']
+pc[OA %in% c('E00070771', 'E00070788', 'E00070846', 'E00070942', 'E00070953'), RGD := 'E28000139']
+pc[LSOA %in% c('E01028864', 'E01028866', 'E01028888', 'E01028896', 'E01028910', 'E01028920', 'E01028925', 'E01028979', 'E01028991', 'E01033530'), RGD := 'E28000183']
+pc[OA == 'W00001769', LPA := 'W43000006']
+pc[LSOA %in% c('W01000329', 'W01000330'), RGD := 'W20000001']
+pc[LSOA %in% c('W01000346'), RGD := 'W20000004']
+pc[LSOA %in% c('W01001548', 'W01001583'), RGD := 'W20000013']
+pc[LSOA %in% c('W01000417', 'W01000427', 'W01000434', 'W01000441', 'W01000443', 'W01000446', 'W01000449', 'W01001907', 'W01000484', 'W01000485', 'W01000497'), RGD := 'W20000038']
+pc[OA == 'E00005337', `:=`( 
+                RGN = 'E12000007', WARD = 'E05011469', PCON = 'E14000656', PAR = 'E43000198',
+                PFA = 'E23000001', FRA = 'E31000046', CSP = 'E22000193', LPA = 'E60000207', LRF = 'E48000021',
+                CTY = NA, CED = NA 
+)]
+for(x in c('LAD', 'FRA', 'CSP', 'LRF', 'CCG', 'NHSO', 'NHSR')){
+    message('Fixing overlapping between OA and ', x, '...')
+    y <- ovu[[x]]
+    setnames(y, c('OA', x))
+    pc <- dt_update(pc, y)
+}
+
+# SAVE  -----------------------------------------
+message('Recoding columns as factors...')
 cols <- setdiff(cols, c('PCS', 'PCD'))
 pc[, (cols) := lapply(.SD, factor), .SDcols = cols]
+pc[, PCD := factor(PCD, levels = pcd$PCD)]
 
-message('Saving dataset as fst with index over is_active and LSOA...')
-write_fst_idx('postcodes', c('is_active', 'LSOA'), pc, geouk_path)
+message('Saving postcodes with various indices...')
+save_postcodes(pc, TRUE)
 
 # Closing ---------------------------------------
 
