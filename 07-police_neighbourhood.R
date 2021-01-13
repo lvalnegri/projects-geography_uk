@@ -8,8 +8,8 @@ pkg <- c('dmpkg.funs', 'data.table', 'fst', 'jsonlite', 'maptools', 'rgdal', 'rv
 invisible(lapply(pkg, require,  char = TRUE))
 
 # set constants ---------------------------------
-data_path <- file.path(ext_path, 'uk')
-pfo_path <- file.path(data_path, 'police_neighbourhood')
+out_path <- file.path(ext_path, 'uk', 'geography')
+pfo_path <- file.path(ext_path, 'uk', 'police_neighbourhood')
 zfile <- file.path(pfo_path, 'KML.zip')
 if(dir.exists(pfo_path)) system(paste('rm -r', pfo_path))
 dir.create(pfo_path)
@@ -26,7 +26,7 @@ convert_KML <- function(fn){
 
 # load forces PFA data --------------------------
 message('Loading data...')
-forces <- fread(file.path(data_path, 'geography', 'locations', 'PFA.csv'))
+forces <- fread(file.path(out_path, 'locations', 'PFA.csv'))
 forces <- forces[substr(PFA, 1, 1) != 'S']
 
 # load neighborhood data ------------------------
@@ -54,7 +54,7 @@ neighs <- neighs[!(PFA == 'W15000003' & id %chin% sups)]
 neighs[, PFN := paste0(PFA, '_', stringr::str_pad(1:.N, 3, 'left', '0')), PFA]
 setcolorder(neighs, c('PFN', 'id', 'PFNn', 'PFA'))
 neighs <- rbindlist(list( neighs, data.table( 'E23000001_659', 'SATST9', 'Heathrow NON Terminals', 'E23000001') ))
-fwrite(neighs[order(PFN)], file.path(data_path, 'geography', 'locations', 'PFN.csv'))
+fwrite(neighs[order(PFN)], file.path(out_path, 'locations', 'PFN.csv'))
 
 # load neighborhood PFN boundaries --------------
 message('Loading last neighbourhoods boundaries zip file...')
@@ -100,75 +100,6 @@ message('Fixing holes...')
 
 message('Saving boundaries as shapefile...')
 save_bnd(nbnd, 'PFN', rds = FALSE, bpath = file.path(ext_path, 'uk', 'geography', 'boundaries'), pct = NULL)
-
-# map postcodes and PFN boundaries --------------
-message('Mapping postcodes and neighbourhoods...')
-message(' - loading postcodes...')
-pc <- read_fst(file.path(geouk_path, 'postcodes'), as.data.table = TRUE)
-pc[, PCN := NULL]
-yn <- names(pc)
-message(' - filtering out Scotland...')
-pcn <- pc[CTRY != 'SCO', .(PCU, x_lon, y_lat)]
-message(' - converting into spatial points...')
-coordinates(pcn) <- ~x_lon+y_lat
-proj4string(pcn) <- crs.wgs
-message(' - performing Points in Polygon...')
-y <- over(pcn, nbnd)
-message(' - merging into postcodes...')
-pc <- setDT(cbind(pcn@data, y))[pc, on = 'PCU']
-setnames(pc, 'id', 'PFN')
-setcolorder(pc, c(yn[1:(which(yn == 'PFA') - 1)], 'PFN', yn[which(yn == 'PFA'):length(yn)]))
-
-# check voids using a map overlaying MSOA
-# bnd <- sp::merge(nbnd, neighs, by.x = 'id', by.y = 'PFN')
-# mp <- basemap(bnd = bnd, bndid = 'PFNn') 
-# lsoa <- readRDS(file.path(bnduk_spath, 'LSOA'))
-# lsoa <- subset(lsoa, substr(lsoa$id, 1, 1) != 'S')
-# mp <- mp %>% leaflet::addPolygons(data = lsoa, fillOpacity = 0, color = 'black', label = ~id)
-# pcna <- pc[CTRY != 'SCO' & is.na(PFN), .(PCU, x_lon, y_lat, LSOA, MSOA)]
-# mp <- mp %>% leaflet::addCircles(data = pcna, lng = ~x_lon, lat = ~y_lat, fillOpacity = 1, color = 'black', label = ~paste(LSOA, MSOA))
-
-# FIX NOVEMBER 2020 
-pc[MSOA %in% c('E02003645', 'E02003646', 'E02003647', 'E02003648', 'E02003649', 'E02003651'), PFN := 'E23000026_007'] # Dunstable Town
-pc[LSOA %in% c('E01017586', 'E01017587'), PFN := 'E23000026_007'] # Dunstable Rural
-pc[LSOA %in% c('W01000614', 'W01000622'), PFN := 'W15000004_014']
-
-# HEATHROW NON TERMINALS
-pc[is.na(PFN) & LSOA %in% c('E01002443', 'E01002444'), PFN := 'E23000001_659']
-
-message('Adding PFN to missing postcode using similar LSOA...')
-y <- unique(pc[!is.na(PFN) & LSOA %in% unique(pc[CTRY != 'SCO' & is.na(PFN), LSOA]), .N, .(LSOA, PFN)])[order(LSOA, -N)]
-yd <- y[LSOA %in% y[, .N, LSOA][N > 1, LSOA]]
-y <- rbindlist(list( y[LSOA %in% y[, .N, LSOA][N == 1, LSOA], .(LSOA, PFN)] , yd[yd[, .I[which.max(N)], .(LSOA)]$V1, .(LSOA, PFN)] ))
-pc <- dt_update(pc, y)
-
-# message('Determine minimum centroids distance for missing mappings...')
-# message(' - filtering out Scotland...')
-# pcn <- pc[CTRY != 'SCO' & is.na(PFN), ]
-# message(' - calculating centroids...')
-# gc <- rgeos::gCentroid(nbnd, byid = TRUE)
-# message(' - calculating distances...')
-# dst = raster::pointDistance(pcn[, .(x_lon, y_lat)], gc, lonlat = TRUE)
-# rownames(dst) <- pcn$PCU
-# colnames(dst) <- nbnd$id
-# message(' - querying minimum distance...')
-# dst <- setDT(melt(dst, ))
-# dst <- dst[dst[ , .I[which.min(value)], Var1]$V1][, value := NULL]
-# setnames(dst, c('PCU', 'PFN'))
-# message(' - updating postcodes...')
-# pc[CTRY != 'SCO' & is.na(PFN), PFN := dst[.SD[['PCU']], .(PFN), on = 'PCU'] ]
-
-message('Adding Scottish PFN/PFA as mapping from LADs/WARDs...')
-y <- fread(file.path(data_path, 'geography', 'lookups', 'SCO_LAD_PFA.csv'))
-pc <- dt_update(pc, y, TRUE)
-y <- unique(pc[CTRY == 'SCO', .(WARD, PFA)])[order(PFA, WARD)]
-y[, PFN := paste0(PFA, '_', stringr::str_pad(1:.N, 3, 'left', '0')), PFA][, PFA := NULL]
-fwrite(y, file.path(data_path, 'geography', 'lookups', 'SCO_WARD_PFN.csv'))
-pc <- dt_update(pc, y, TRUE)
-
-# save postcodes dataset ------------------------
-message('Saving postcodes with various indices...')
-save_postcodes(pc, TRUE)
 
 # clean and Exit --------------------------------
 message('Clean and Exit...')
