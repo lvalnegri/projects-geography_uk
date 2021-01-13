@@ -3,14 +3,11 @@
 ###############################
 
 # load packages 
-pkg <- c('data.table', 'fst', 'RMySQL')
+pkg <- c('dmpkg.funs', 'data.table', 'fst', 'RMySQL')
 invisible(lapply(pkg, require, character.only = TRUE))
 
-# set constants 
-data_path <- file.path(Sys.getenv('PUB_PATH'), 'datasets', 'uk', 'geography')
-
 # load data 
-oas <- read.fst(file.path(data_path, 'output_areas'), as.data.table = TRUE)
+oas <- read.fst(file.path(geouk_path, 'output_areas'), as.data.table = TRUE)
 dbc <- dbConnect(MySQL(), group = 'geouk')
 hrc <- data.table( dbGetQuery(dbc, "SELECT hierarchy_id, child_type, parent_type FROM hierarchies WHERE child_type NOT IN ('OA', 'WPZ')") )
 dbDisconnect(dbc)
@@ -38,7 +35,7 @@ dbDisconnect(dbc)
 message('Saving as fst...')
 cols <- c('child_id', 'parent_id')
 lkps[, (cols) := lapply(.SD, factor), .SDcols = cols]
-write.fst(lkps, file.path(data_path, 'lookups'))
+write.fst(lkps, file.path(geouk_path, 'lookups'))
 
 # clean and exit
 message('DONE!')
