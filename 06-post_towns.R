@@ -103,17 +103,6 @@ fwrite(pcdt, file.path(data_path, 'lookups', 'PCD_to_PCT.csv'), row.names = FALS
 if(nrow(pcdt[is.na(PCT)])) 
     warning('CHECK pcd.csv! Not all Post Towns have been found. There still are ', nrow(pcd[is.na(PCT)]), ' missing' )
 
-message('Adding PCT to postcodes fst file...')
-pc <- read_fst(file.path(geouk_path, 'postcodes'), as.data.table = TRUE)
-yn <- names(pc)
-if('PCT' %in% yn) pc[, PCT := NULL]
-pc <- pcdt[, .(PCD, PCT)][pc, on = 'PCD']
-pc[, `:=`( PCD = factor(PCD), PCT = factor(PCT) )]
-setcolorder(pc, c(yn[1:which(yn == 'PCD')], 'PCT', yn[(which(yn == 'PCD') + 1):length(yn)]))
-
-message('Saving postcodes with various indices...')
-save_postcodes(pc)
-
 
 # Villages --------------------------------------
 message('\n============================================================')
