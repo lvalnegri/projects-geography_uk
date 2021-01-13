@@ -145,7 +145,8 @@ build.parent.boundaries('PCON')
 build.parent.boundaries('PAR')
 
 # create boundaries for the "social" hierarchy
-build.parent.boundaries('PFA', 'LSOA')
+build.parent.boundaries('CSP', 'OA')
+build.parent.boundaries('PFA', 'MSOA')
 build.parent.boundaries('STP', 'LSOA')
 build.parent.boundaries('CCG', 'LSOA')
 build.parent.boundaries('NHSO', 'CCG')
