@@ -8,7 +8,7 @@ invisible(lapply(pkgs, require, char = TRUE))
 out_path <- file.path(bnduk_path, 'postcodes')
 
 message('Loading data...')
-cols <- c('LSOA', 'MSOA', 'WARD', 'PAR', 'PFN', 'PCS', 'PCD', 'PCT')
+cols <- c('LSOA', 'MSOA', 'WARD', 'PAR', 'PFN', 'PCS', 'PCD', 'PCT', 'BUA', 'BUAS')
 pc <- read_fst_idx(file.path(geouk_path, 'postcodes'), 1, c('PCU', 'x_lon', 'y_lat', 'OA', cols))
 bnd <- readRDS(file.path(bnduk_spath, 'OA'))
 
